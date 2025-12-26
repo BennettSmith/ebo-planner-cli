@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Go setup is conditional since this repo may not yet have go.mod.
+      - name: Detect Go module
+        id: go_mod
+        shell: bash
+        run: |
+          if [ -f go.mod ]; then
+            echo "has_go_mod=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_go_mod=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        if: steps.go_mod.outputs.has_go_mod == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: CI
+        run: make ci
+
+
