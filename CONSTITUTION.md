@@ -18,6 +18,8 @@ It exists to:
 
 The CLI must not rely on undocumented or unspecified service behavior.
 
+**We practice spec-first development.** All requirements changes — new features, changes to behavior defined by a use case, and API contract changes — **must originate in the spec repo**. This repo may only implement/consume those changes after updating `spec.lock`.
+
 ## 3. Scope
 
 ### 3.1 Allowed content
@@ -69,6 +71,8 @@ The CLI must not rely on undocumented or unspecified service behavior.
 5) Update CLI commands/UX
 
 CLI-only UX improvements may skip step (1).
+
+If a CLI feature would require a new endpoint, a changed request/response shape, new validation rules, or any new/changed use-case behavior, step (1) is mandatory.
 
 ## 7. Versioning & distribution
 
