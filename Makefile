@@ -1,4 +1,33 @@
-.PHONY: changelog-verify changelog-release release-help
+.PHONY: help ci changelog-verify changelog-release release-help
+
+help:
+	@echo "CI / verification:"
+	@echo "  make ci"
+	@echo ""
+	@echo "Changelog / releasing:"
+	@echo "  make changelog-verify"
+	@echo "  make changelog-release VERSION=0.8.0"
+	@echo "Then commit, tag v0.8.0, and push the tag."
+
+# Canonical "green" definition for this repo.
+# Today, this repo is mostly release plumbing; when Go code lands, this will
+# automatically start enforcing Go fmt/vet/test/build as well.
+ci: changelog-verify
+	@if [ -f go.mod ]; then \
+		echo "Go checks (fmt-check + vet + test + build)..."; \
+		unformatted="$$(gofmt -l $$(find . -name '*.go' -not -path './vendor/*' 2>/dev/null || true))"; \
+		if [ -n "$$unformatted" ]; then \
+			echo "ERROR: gofmt needed on:" >&2; \
+			echo "$$unformatted" >&2; \
+			echo "Fix: run 'gofmt -w' (or add a 'make fmt' target)." >&2; \
+			exit 1; \
+		fi; \
+		go vet ./...; \
+		go test ./...; \
+		go build ./...; \
+	else \
+		echo "NOTE: No go.mod; skipping Go checks."; \
+	fi
 
 changelog-verify:
 	@./scripts/verify_changelog.sh
@@ -12,10 +41,6 @@ changelog-release:
 	@./scripts/release_changelog.sh "$(VERSION)"
 
 release-help:
-	@echo "CLI releases:"
-	@echo "  1) Update spec.lock to the spec tag targeted (e.g. v1.2.3)"
-	@echo "  2) Add Unreleased notes in CHANGELOG.md (commands/flags/output/UX)"
-	@echo "  3) make changelog-release VERSION=0.8.0"
-	@echo "  4) Commit CHANGELOG.md (+ spec.lock if changed), tag v0.8.0, push tag"
+	@$(MAKE) help
 
 
