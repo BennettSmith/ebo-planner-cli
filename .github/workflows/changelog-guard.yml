@@ -1,0 +1,61 @@
+name: changelog-guard
+
+on:
+  pull_request:
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify changelog format
+        run: ./scripts/verify_changelog.sh
+
+      - name: Verify spec.lock
+        run: ./scripts/verify_spec_lock.sh
+
+      - name: Require changelog update when CLI behavior changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          echo "Diff: ${BASE_SHA}..${HEAD_SHA}"
+          changed="$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")"
+          echo "${changed}"
+
+          changelog_changed=0
+          if echo "${changed}" | grep -Fxq 'CHANGELOG.md'; then
+            changelog_changed=1
+          fi
+
+          # Categories that typically change user-visible CLI behavior.
+          # NOTE: output format changes are considered potentially breaking and must be documented.
+          requires_changelog=0
+          if echo "${changed}" | grep -Eq '^(cmd/|internal/|pkg/)'; then
+            requires_changelog=1
+          fi
+          if echo "${changed}" | grep -Eq '^(scripts/)'; then
+            requires_changelog=1
+          fi
+          if echo "${changed}" | grep -Eq '^(Dockerfile|docker-compose\.yml|Makefile)'; then
+            requires_changelog=1
+          fi
+
+          if [[ "${requires_changelog}" -eq 1 && "${changelog_changed}" -ne 1 ]]; then
+            echo "ERROR: CLI behavior/UX likely changed, but CHANGELOG.md was not updated." >&2
+            echo "If you changed CLI code (cmd/, internal/, pkg/), scripts/, or config defaults (Makefile/Dockerfile/docker-compose)," >&2
+            echo "please add a short note under '## [Unreleased]' in CHANGELOG.md." >&2
+            echo "Reminder: output format changes are potentially breaking and MUST be documented." >&2
+            exit 1
+          fi
+
+          echo "OK: changelog guard passed."
+
+
