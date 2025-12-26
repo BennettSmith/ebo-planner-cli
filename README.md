@@ -1,5 +1,7 @@
 # ebo-planner-cli
 
+TBD: Create the CLI
+
 ## Changelog & releases
 
 - **For PRs**: update `CHANGELOG.md` under **`## [Unreleased]`** with a short note for user-visible CLI changes (commands/flags/output/behavior).
