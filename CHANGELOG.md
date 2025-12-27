@@ -22,6 +22,7 @@ Notes:
 - Initialized the Go module and added a minimal `ebo` root command with global flags and environment variable equivalents.
 
 ### Changed
+- CI now runs `go test` with `-count=1` to disable test result caching.
 
 ### Deprecated
 

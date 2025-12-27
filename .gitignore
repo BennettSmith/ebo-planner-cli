@@ -1,0 +1,19 @@
+## Go build/test artifacts
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+cover.out
+
+## Go workspace files
+go.work
+go.work.sum
+
+## IDE/editor noise
+.DS_Store
+.idea/
+.vscode/
