@@ -159,3 +159,59 @@ func TestLoad_InvalidYAMLReturnsError(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestSave_CreatesParentDir(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": base}}
+
+	doc := config.NewEmptyDocument()
+	doc, _ = config.SetString(doc, "currentProfile", "default")
+
+	if err := s.Save(ctx, doc); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if _, err := os.Stat(p); err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+}
+
+func TestPath_UsesOSEnv(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	// Set process env so OSEnv.LookupEnv is exercised.
+	if err := os.Setenv("EBO_CONFIG_DIR", base); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_CONFIG_DIR") })
+
+	s := Store{Env: OSEnv{}}
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	want := filepath.Join(base, "ebo", "config.yaml")
+	if p != want {
+		t.Fatalf("got %q want %q", p, want)
+	}
+}
+
+func TestSave_FailsWhenConfigDirIsFile(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	// Create a file named "ebo" where a directory is expected.
+	if err := os.WriteFile(filepath.Join(base, "ebo"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": base}}
+
+	doc := config.NewEmptyDocument()
+	if err := s.Save(ctx, doc); err == nil {
+		t.Fatalf("expected error")
+	}
+}
