@@ -1,4 +1,4 @@
-.PHONY: help ci changelog-verify changelog-release release-help
+.PHONY: help ci gen changelog-verify changelog-release release-help
 
 help:
 	@echo "CI / verification:"
@@ -25,7 +25,8 @@ ci: changelog-verify
 		go vet ./...; \
 		go test ./... -count=1; \
 		covfile="$$(mktemp)"; \
-		go test ./internal/... -count=1 -coverprofile="$$covfile" >/dev/null; \
+		pkgs="$$(go list ./internal/... | grep -v '/internal/gen')"; \
+		go test $$pkgs -count=1 -coverprofile="$$covfile" >/dev/null; \
 		total="$$(go tool cover -func="$$covfile" | awk '/^total:/{gsub(/%/,"",$$3); print $$3}')"; \
 		rm -f "$$covfile"; \
 		echo "Internal coverage: $$total%"; \
@@ -51,3 +52,9 @@ release-help:
 	@$(MAKE) help
 
 
+
+
+gen:
+	@spec_path="$$(go run ./tools/specpin)"; \
+		echo "Generating OpenAPI client from $$spec_path..."; \
+		go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1 -response-type-suffix ClientResponse -config oapi-codegen.yaml "$$spec_path"

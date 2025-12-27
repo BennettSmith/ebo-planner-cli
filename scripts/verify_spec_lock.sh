@@ -18,8 +18,8 @@ if [[ -z "${spec_version}" ]]; then
   exit 1
 fi
 
-if ! printf "%s" "${spec_version}" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-  err "${SPEC_LOCK_FILE} must contain a SemVer tag like v1.2.3 (or 1.2.3). Found: '${spec_version}'"
+if ! printf "%s" "${spec_version}" | grep -Eq '^(v?[0-9]+\.[0-9]+\.[0-9]+|[0-9a-f]{7,40})$'; then
+  err "${SPEC_LOCK_FILE} must contain a SemVer tag like v1.2.3 (or 1.2.3) OR a git commit SHA. Found: '${spec_version}'"
   exit 1
 fi
 

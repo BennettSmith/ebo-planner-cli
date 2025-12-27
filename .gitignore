@@ -17,3 +17,6 @@ go.work.sum
 .DS_Store
 .idea/
 .vscode/
+
+# Local spec cache (generated)
+.spec-cache/

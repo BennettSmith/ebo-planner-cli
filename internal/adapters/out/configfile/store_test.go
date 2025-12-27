@@ -128,3 +128,34 @@ func TestSave_NilDocumentErrors(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestPath_UsesUserConfigDirWhenNoOverride(t *testing.T) {
+	ctx := context.Background()
+	s := Store{Env: mapEnv{}}
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if !strings.HasSuffix(p, string(os.PathSeparator)+"ebo"+string(os.PathSeparator)+"config.yaml") {
+		t.Fatalf("unexpected path: %q", p)
+	}
+}
+
+func TestLoad_InvalidYAMLReturnsError(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": base}}
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(p, []byte(": ["), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := s.Load(ctx); err == nil {
+		t.Fatalf("expected error")
+	}
+}
