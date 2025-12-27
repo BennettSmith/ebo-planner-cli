@@ -2,8 +2,12 @@ package plannerapi
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/httpx"
 
 	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
@@ -11,13 +15,16 @@ import (
 
 type Adapter struct {
 	HTTPClient *http.Client
+	Timeout    time.Duration
+	Verbose    bool
+	LogSink    io.Writer
 }
 
 func (a Adapter) newClient(baseURL string, bearerToken string) (*gen.ClientWithResponses, error) {
 	opts := []gen.ClientOption{}
-	if a.HTTPClient != nil {
-		opts = append(opts, gen.WithHTTPClient(a.HTTPClient))
-	}
+	hc := a.HTTPClient
+	hc = httpx.NewClient(hc, httpx.Options{Timeout: a.Timeout, Verbose: a.Verbose, LogSink: a.LogSink})
+	opts = append(opts, gen.WithHTTPClient(hc))
 	opts = append(opts, gen.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
 		_ = ctx
 		if strings.TrimSpace(bearerToken) != "" {
