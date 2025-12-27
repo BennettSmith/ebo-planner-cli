@@ -1,11 +1,30 @@
-# ebo-planner-cli — CLI Specification (Draft)
+# ebo-planner-cli — CLI Specification
 
-Status: **DRAFT (v1 conventions finalized; pending review)**
+Status: **APPROVED (v1.0)**
 
 This document specifies the required behavior and command surface of the **East Bay Overland Trip Planning CLI**.
 
 It is **spec-first**: API behavior and validation rules come from the spec repo and are consumed via `spec.lock`.
 The CLI must not rely on undocumented service behavior.
+
+---
+
+## Revision History
+
+### Version 1.0 (2025-12-27)
+
+Initial approved specification. Resolved all ambiguities from draft:
+
+- Clarified idempotency key behavior for naturally idempotent operations (`trip publish`, `member create`)
+- Specified meeting location patch semantics (independent field updates, clearing behavior)
+- Defined shared vehicle profile flags section
+- Clarified artifact list management and deduplication
+- Required OIDC configuration for all profiles with multi-tenant support
+- Added comprehensive interactive prompt mode specification
+
+### Draft (2025-12-xx)
+
+Initial draft with v1 conventions finalized.
 
 ---
 
@@ -44,20 +63,19 @@ This document is **strictly normative**.
 
 ---
 
-## Open design decisions (questions to answer)
+## Design Decisions
 
-Resolved decisions:
+Key decisions for v1:
 
 - **Binary name**: `ebo`
-- **Auth UX**: interactive `ebo auth login`
-- **Profiles**: required; `--profile <name>` supported
+- **Auth UX**: interactive `ebo auth login` with OAuth 2.0 Device Authorization Grant
+- **Profiles**: required; `--profile <name>` supported with OIDC configuration per profile
 - **Default output**: human table by default; machine output via `--output json`
-- **Idempotency keys**: auto-generate when omitted for operations requiring idempotency
+- **Idempotency keys**: auto-generate when omitted for operations requiring idempotency; not exposed for naturally idempotent operations
 - **Destructive confirmations**: require `--force` for destructive operations
-
-Open questions:
-
-None (v1 decisions below).
+- **Multi-line input**: supported via `--from-file`, `--edit`, and `--prompt` modes
+- **Meeting location updates**: independent field updates supported with explicit clearing
+- **Interactive prompt mode**: comprehensive guided entry with nested structure support
 
 ---
 
@@ -132,6 +150,11 @@ For mutating API operations where the OpenAPI spec requires `Idempotency-Key`:
   - included in JSON output as `meta.idempotencyKey`
   - printed to stderr when `--output table` (so stdout stays clean for piping)
 
+For mutating API operations that are naturally idempotent by design (e.g., operations that return success on duplicate requests without requiring an explicit idempotency key):
+
+- The CLI MUST NOT expose `--idempotency-key` for these operations.
+- Each such operation MUST document that idempotency keys are not supported and why.
+
 ### Destructive operation confirmation
 
 For destructive operations, the CLI MUST require an explicit `--force` flag.
@@ -198,7 +221,7 @@ Where `Profile` has:
   - `accessToken: string` (optional; bearer token used for API calls)
   - `tokenType: string` (optional; MUST be `Bearer` when present)
   - `expiresAt: string` (optional; RFC3339 timestamp)
-- `oidc: object` (required for `ebo auth login`)
+- `oidc: object` (required)
   - `issuerUrl: string` (required; OIDC issuer base URL)
   - `clientId: string` (required)
   - `scopes: array[string]` (required; MUST include `openid`)
@@ -207,6 +230,8 @@ Notes:
 
 - The CLI MUST preserve unknown fields when rewriting config.
 - The CLI MUST NOT write additional unknown top-level keys except under `x-ebo` (reserved extension namespace).
+- OIDC configuration is required for all profiles, even if interactive login (`ebo auth login`) is not used. Different profiles MAY have different OIDC issuers to support multi-tenant or dev/staging/production scenarios.
+- A profile can function normally for API calls without using `ebo auth login` if credentials are set via `ebo auth token set --token <jwt>`.
 
 ### Required profile behavior (normative)
 
@@ -282,6 +307,7 @@ The CLI MUST provide:
 `auth login` requirements:
 
 - MUST be interactive.
+- If the active profile does not have OIDC configuration (`oidc.issuerUrl`, `oidc.clientId`, `oidc.scopes`), the CLI MUST fail with exit code `2` and print guidance on configuring OIDC settings for the profile.
 - MUST use the OAuth 2.0 Device Authorization Grant (RFC 8628) against the configured OIDC issuer:
   - Discover endpoints via `GET {issuerUrl}/.well-known/openid-configuration`.
   - Request a device code.
@@ -511,6 +537,7 @@ Notes:
   - `--meeting-label <string>`
   - `--meeting-address <string>` / `--clear-meeting-address`
   - `--meeting-lat <float>` / `--meeting-lng <float>` / `--clear-meeting-latlng`
+  - `--clear-meeting-location`
   - `--comms <string>` / `--clear-comms`
   - `--recommended <string>` / `--clear-recommended`
   - `--artifact-id <id>` (repeatable; replaces ordered list) / `--clear-artifacts`
@@ -533,11 +560,19 @@ Notes:
 - Date/time semantics:
   - `--start-date` and `--end-date` MUST accept only `YYYY-MM-DD`.
   - Time elements MUST NOT be accepted on these flags in v1.
-- Meeting latitude/longitude semantics:
-  - If either `--meeting-lat` or `--meeting-lng` is provided, the other MUST also be provided; otherwise the CLI MUST fail with exit code `2` and make no request.
-  - No combined “single meeting location flag” is supported in v1; use the granular meeting flags or `--from-file`/`--edit`.
+- Meeting location semantics:
+  - The CLI supports independent updates to meeting location fields: `--meeting-label` and `--meeting-address` can be updated independently.
+  - Latitude/longitude MUST be provided as a pair: if either `--meeting-lat` or `--meeting-lng` is provided, the other MUST also be provided; otherwise the CLI MUST fail with exit code `2` and make no request.
+  - The meeting label CANNOT be cleared once set; there is no `--clear-meeting-label` flag. The label is required when a meeting location exists.
+  - To remove the entire meeting location, use `--clear-meeting-location`.
+  - `--clear-meeting-location` is mutually exclusive with any other meeting location flags (`--meeting-label`, `--meeting-address`, `--meeting-lat`, `--meeting-lng`, `--clear-meeting-address`, `--clear-meeting-latlng`); providing both MUST result in exit code `2`.
+  - Note: The OpenAPI spec's `LocationPatch` schema allows nullable `label`, but the CLI enforces that labels cannot be cleared to maintain location clarity. If a location exists, it must have a label. This constraint should be reflected in a future API spec update.
 - Artifact semantics:
   - `--artifact-id` is replace-only and ordered: if provided one or more times, it replaces the entire artifact list in the given order.
+  - If `--artifact-id` is not provided at all, the artifact list is unchanged (no-op).
+  - To clear the artifact list entirely, use `--clear-artifacts`.
+  - `--artifact-id` and `--clear-artifacts` are mutually exclusive; providing both MUST result in exit code `2`.
+  - If `--artifact-id` is provided multiple times with duplicate IDs, the CLI MUST deduplicate the list (preserving first occurrence order) before submitting to the API.
 - Multi-line text semantics:
   - Multi-line values for text fields MUST be provided via `--from-file`, `--edit`, or `--prompt` (not via flags).
 
@@ -550,7 +585,8 @@ Notes:
 #### `trip publish <tripId>`
 
 - **Maps to**: `POST /trips/{tripId}/publish` (`publishTrip`)
-- **Description**: Publishes a PUBLIC draft after validating required fields; returns `announcementCopy`.
+- **Description**: Publishes a PUBLIC draft after validating required fields; returns `announcementCopy`. This operation is naturally idempotent (publishing an already-published trip succeeds with HTTP 200).
+- **Idempotency**: does NOT support `--idempotency-key` (the API operation is inherently idempotent and does not accept an idempotency key header).
 - **Options**:
   - `--print-announcement` (required to output announcement copy; see Output behavior below)
 
@@ -605,6 +641,31 @@ Output behavior:
 
 ### Members
 
+#### Vehicle profile flags (shared)
+
+The following flags are available for configuring vehicle profile information on both `member create` and `member update` commands:
+
+- `--vehicle-make <string>`
+- `--vehicle-model <string>`
+- `--vehicle-tire-size <string>`
+- `--vehicle-lift-lockers <string>`
+- `--vehicle-fuel-range <string>`
+- `--vehicle-recovery-gear <string>`
+- `--vehicle-ham-radio-call-sign <string>`
+- `--vehicle-notes <string>`
+
+For `member update` only, the following clear flags are also available:
+
+- `--clear-vehicle-make`
+- `--clear-vehicle-model`
+- `--clear-vehicle-tire-size`
+- `--clear-vehicle-lift-lockers`
+- `--clear-vehicle-fuel-range`
+- `--clear-vehicle-recovery-gear`
+- `--clear-vehicle-ham-radio-call-sign`
+- `--clear-vehicle-notes`
+- `--clear-vehicle` (clears the entire vehicle profile)
+
 #### `member list`
 
 - **Maps to**: `GET /members` (`listMembers`)
@@ -621,10 +682,17 @@ Output behavior:
 - **Behavior**:
   - If `MEMBER_NOT_PROVISIONED`, exit code MUST reflect 404 and JSON/human output should guide users to `member create`.
 
-#### `member create --display-name <name> --email <email> [--group-alias-email <email>] [vehicle flags...]`
+#### `member create`
 
 - **Maps to**: `POST /members` (`createMyMember`)
-- **Description**: Provisions the caller’s member record.
+- **Description**: Provisions the caller's member record.
+- **Idempotency**: does NOT support `--idempotency-key` (the API returns HTTP 409 with `MEMBER_ALREADY_EXISTS` if a member profile already exists for the authenticated subject, providing natural retry safety).
+- **Required options**:
+  - `--display-name <string>`
+  - `--email <email>`
+- **Optional options**:
+  - `--group-alias-email <email>`
+  - Vehicle profile flags (see "Vehicle profile flags" section above)
 
 #### `member update`
 
@@ -634,15 +702,7 @@ Output behavior:
   - `--display-name <string>` / `--clear-display-name` (note: server requires non-empty if provided)
   - `--email <email>` (cannot be cleared)
   - `--group-alias-email <email>` / `--clear-group-alias-email`
-  - `--vehicle-make <string>` / `--clear-vehicle-make`
-  - `--vehicle-model <string>` / `--clear-vehicle-model`
-  - `--vehicle-tire-size <string>` / `--clear-vehicle-tire-size`
-  - `--vehicle-lift-lockers <string>` / `--clear-vehicle-lift-lockers`
-  - `--vehicle-fuel-range <string>` / `--clear-vehicle-fuel-range`
-  - `--vehicle-recovery-gear <string>` / `--clear-vehicle-recovery-gear`
-  - `--vehicle-ham-radio-call-sign <string>` / `--clear-vehicle-ham-radio-call-sign`
-  - `--vehicle-notes <string>` / `--clear-vehicle-notes`
-  - `--clear-vehicle`
+  - Vehicle profile flags (see "Vehicle profile flags" section above; includes both set and clear flags)
   - `--idempotency-key <string>` (optional; auto-generated if omitted)
   - `--from-file <path>` (optional; JSON or YAML; see File-based requests)
   - `--edit` (optional; open $EDITOR; see Editor mode)
@@ -691,8 +751,59 @@ When `--edit` is provided:
 
 ## Interactive prompt mode (quick entry)
 
-When `--prompt` is provided:
+When `--prompt` is provided, the CLI MUST implement an interactive guided entry experience with the following behavior:
+
+### General prompt requirements
 
 - The CLI MUST guide the user through entering fields **one at a time**.
-- It MUST support multi-line entry for text fields by launching editor mode for those fields (same editor resolution rules as `--edit`).
-- It MUST build the same JSON/YAML request shape as the file/editor modes and submit it.
+- The CLI MUST build the same JSON/YAML request shape as the file/editor modes and submit it.
+- The CLI MUST allow users to abort at any time:
+  - Ctrl+C (SIGINT) MUST terminate the prompt session and exit with code `130` (standard interrupted exit code).
+  - No API request MUST be made if the user aborts.
+
+### Required vs. optional fields
+
+- For required fields:
+  - The CLI MUST prompt until a valid value is provided.
+  - Empty input MUST be rejected and the prompt MUST be repeated with guidance.
+- For optional fields:
+  - The CLI MUST indicate that the field is optional (e.g., "Description (optional):").
+  - Pressing Enter without input MUST skip the field (leaving it unset).
+  - If the command is an update/patch operation and the field already has a value, the CLI SHOULD display the current value and allow the user to keep it, change it, or clear it (if clearable).
+
+### Multi-line text fields
+
+- For fields that support multi-line text (e.g., `description`, `commsRequirementsText`, `vehicle.notes`):
+  - The CLI MUST prompt: "Enter [field name] (press Enter to open editor, or type inline for single line):".
+  - If the user presses Enter immediately, the CLI MUST launch the editor (same resolution rules as `--edit`).
+  - If the user types text, the CLI MUST accept it as a single-line value.
+  - Multi-line values MUST be entered via editor mode only.
+
+### Nested structures
+
+- For nested/complex structures (e.g., `vehicleProfile`, `meetingLocation`):
+  - The CLI MUST first prompt: "Do you want to configure [structure name]? (y/N):".
+  - If the user answers "y" or "yes" (case-insensitive), the CLI MUST then prompt for each field in the structure sequentially.
+  - If the user answers "n", "no", or presses Enter (default), the CLI MUST skip the entire structure.
+- For update/patch operations:
+  - If the structure already exists, the CLI SHOULD prompt: "Update [structure name]? Current: [summary] (y/N/clear):".
+  - "y" or "yes": prompt for each field (allowing individual updates).
+  - "clear": set the structure to null (if clearable).
+  - "n", "no", or Enter: leave unchanged.
+
+### Repeatable fields (arrays)
+
+- For repeatable fields (e.g., `artifactIds` for `trip update`):
+  - The CLI MUST prompt for the first value: "Enter [field name] #1 (or press Enter to skip):".
+  - If the user provides a value, the CLI MUST prompt for the next: "Enter [field name] #2 (or press Enter to finish):".
+  - The CLI MUST continue prompting for additional values until the user presses Enter without input.
+  - The CLI MUST build an ordered array from the entered values.
+  - If the user presses Enter on the first prompt (without entering any values), the field is left unset (for patch operations) or set to an empty array (for create operations, if applicable).
+
+### Validation and error handling
+
+- The CLI MUST validate each field as it is entered.
+- If validation fails (e.g., invalid email format, invalid date format):
+  - The CLI MUST display an error message.
+  - The CLI MUST re-prompt for the same field until a valid value is provided or the user aborts.
+- The CLI MUST NOT submit a request if any required field is missing or invalid.
