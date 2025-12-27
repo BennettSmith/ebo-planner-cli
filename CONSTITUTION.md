@@ -109,6 +109,47 @@ gh pr create --fill
 gh pr merge --auto --squash
 ```
 
+## 6.2 Cursor agent working cadence (mandatory)
+
+This repo is designed for autonomous Cursor agents working issue-by-issue with tight feedback loops.
+
+### 6.2.1 Source of work: GitHub Project ordering
+
+- Work is tracked in the GitHub Project **EBO Planner CLI v1**.
+- Issues have a numeric **Order** field that defines the intended dependency order.
+- Unless explicitly instructed otherwise, an agent MUST pick the next issue as the **lowest-Order** issue in **Status: Todo**.
+
+### 6.2.2 One issue at a time
+
+- An agent MUST work on **at most one** issue at a time.
+- Before starting implementation, the agent MUST:
+  - set the Project item to **In Progress**
+  - assign the issue to themselves (or clearly comment that an agent is working it)
+
+### 6.2.3 TDD + coverage gate
+
+- The CLI MUST be developed using **TDD**:
+  - tests are written/updated first (or in the same PR) to specify the behavior being added
+  - behavior changes MUST NOT land without tests
+- The repo MUST maintain **>= 85% test coverage for non-generated code**.
+  - Generated code (e.g., OpenAPI client code under `internal/gen/` or similar) MUST be excluded from coverage calculations.
+  - PRs MUST NOT reduce non-generated coverage below 85%.
+
+### 6.2.4 Definition of Done for an issue
+
+An issue is Done only when:
+
+- `make ci` passes
+- acceptance criteria in the issue are satisfied
+- the PR links the issue (e.g., “Closes #123”)
+- the Project item is moved to **Done**
+
+### 6.2.5 PR hygiene
+
+- PRs should stay small and focused on one issue.
+- Prefer squash-merge with auto-merge enabled (see 6.1.4).
+- If an issue needs to be split, the agent MUST create follow-up issues and keep the Project Order consistent.
+
 ## 7. Versioning & distribution
 
 - CLI versioning is independent of spec and service.
@@ -117,6 +158,8 @@ gh pr merge --auto --squash
 
 ## 8. Testing philosophy
 
+- **TDD is mandatory** (see 6.2.3).
+- **Coverage is a release-quality gate**: non-generated code coverage MUST remain **>= 85%**.
 - **Command tests** (argument parsing, flags)
 - **Client integration tests** (mocked HTTP)
 - **End-to-end tests** against a running service (optional)
