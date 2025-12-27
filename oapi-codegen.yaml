@@ -1,0 +1,5 @@
+package: plannerapi
+output: internal/gen/plannerapi/client.gen.go
+generate:
+  models: true
+  client: true
