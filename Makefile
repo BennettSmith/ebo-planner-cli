@@ -24,6 +24,13 @@ ci: changelog-verify
 		fi; \
 		go vet ./...; \
 		go test ./...; \
+		covfile="$$(mktemp)"; \
+		go test ./internal/... -coverprofile="$$covfile" >/dev/null; \
+		total="$$(go tool cover -func="$$covfile" | awk '/^total:/{gsub(/%/,"",$$3); print $$3}')"; \
+		rm -f "$$covfile"; \
+		echo "Internal coverage: $$total%"; \
+		awk -v t="$$total" 'BEGIN{exit !(t+0 >= 85)}' \
+			|| { echo "ERROR: internal (non-generated) coverage must be >= 85%" >&2; exit 1; }; \
 		go build ./...; \
 	else \
 		echo "NOTE: No go.mod; skipping Go checks."; \
