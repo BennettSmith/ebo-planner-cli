@@ -17,7 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
-- Documented hexagonal architecture boundaries and introduced an initial `internal/` package skeleton to guide CLI implementation layering.
+- Initialized the Go module and added a minimal `ebo` root command with global flags and environment variable equivalents.
 
 ### Changed
 
