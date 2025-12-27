@@ -150,6 +150,15 @@ An issue is Done only when:
 - Prefer squash-merge with auto-merge enabled (see 6.1.4).
 - If an issue needs to be split, the agent MUST create follow-up issues and keep the Project Order consistent.
 
+### 6.2.6 Incremental commits (recommended)
+
+- While working on a branch, an agent MAY make incremental commits as they go to checkpoint progress.
+- Checkpoint commits SHOULD be:
+  - small and scoped (one logical change)
+  - named clearly (imperative mood, e.g., “Add config loader tests”)
+- It is OK for intermediate commits to be “work in progress”, but the branch MUST be green (`make ci`) before opening/marking ready a PR.
+- The default merge strategy remains **squash**, so incremental commits do not leak into `main` unless explicitly desired.
+
 ## 7. Versioning & distribution
 
 - CLI versioning is independent of spec and service.
