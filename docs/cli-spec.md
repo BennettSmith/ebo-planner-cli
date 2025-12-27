@@ -1,6 +1,6 @@
 # ebo-planner-cli — CLI Specification (Draft)
 
-Status: **DRAFT (v1 conventions finalized; some per-command patch flags remain “(proposed)”)**
+Status: **DRAFT (v1 conventions finalized; pending review)**
 
 This document specifies the required behavior and command surface of the **East Bay Overland Trip Planning CLI**.
 
@@ -30,6 +30,17 @@ The CLI must not rely on undocumented service behavior.
 - **Draft visibility**:
   - `PRIVATE` drafts: visible only to creator
   - `PUBLIC` drafts: visible only to organizers
+
+---
+
+## Normativity
+
+This document is **strictly normative**.
+
+- The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**, and **OPTIONAL** are to be interpreted as described in RFC 2119.
+- In this document:
+  - **MUST/MUST NOT** define required behavior for a compliant v1 `ebo` implementation.
+  - **MAY/OPTIONAL** are used only when behavior is explicitly allowed but not required; when an OPTIONAL behavior is implemented, its behavior is still normative as described here.
 
 ---
 
@@ -100,12 +111,16 @@ Minimum required exit code contract:
 - **Human errors**: MUST be multi-line and include actionable guidance when possible (e.g., “Try: `ebo member create ...`”).
 - **JSON output**:
   - MUST be valid JSON written to stdout
-  - SHOULD be a single JSON object per invocation (not NDJSON) unless explicitly designed otherwise
+  - MUST be a single JSON object per invocation (not NDJSON)
   - MUST NOT include ANSI color codes
-  - SHOULD include a stable envelope:
-    - `data`: the API response payload (or a CLI-defined payload for non-API commands)
-    - `meta`: request metadata (e.g., `requestId`, `idempotencyKey`, `apiUrl`) when available
-    - `error`: present only on failure; matches API error shape when available
+  - MUST use a stable envelope with these top-level keys:
+    - `data`: present on success; MUST be the API response payload (or a CLI-defined payload for non-API commands)
+    - `meta`: present on both success and failure; MUST include:
+      - `apiUrl: string` (effective base URL used for the request, if any)
+      - `profile: string` (effective profile name)
+      - `idempotencyKey: string` (when an idempotency key was sent)
+      - `requestId: string` (when provided by the API response)
+    - `error`: present on failure only; MUST be compatible with the API error shape when available (at minimum: `error.code`, `error.message`)
 
 ### Idempotency contract
 
@@ -130,9 +145,20 @@ For destructive operations, the CLI MUST require an explicit `--force` flag.
 For user-supplied free-text fields (e.g., trip `name`, `description`, `difficultyText`, comms text, recommended text, and location label/address):
 
 - The CLI MUST treat inputs as **plain text**.
-- Multi-line text MUST be accepted where applicable (e.g., `--description` and editor/file modes).
+- Multi-line text MUST be accepted where applicable.
 - The CLI MUST NOT support Markdown or HTML rendering/preview features in v1.
-- The CLI MAY warn (but MUST NOT transform) if input appears to contain HTML/Markdown.
+- The CLI MUST NOT emit content-based warnings or transformations (treat text as opaque).
+
+### Multi-line input policy (normative)
+
+For any field that supports multi-line values (today or in the future):
+
+- When provided via **flags**, values MUST be treated as **single-line** only.
+  - If a multi-line value is detected in a flag value, the CLI MUST fail with exit code `2` and make no request.
+- Multi-line values MUST be provided via one of:
+  - `--from-file`
+  - `--edit`
+  - `--prompt`
 
 ---
 
@@ -170,12 +196,17 @@ Where `Profile` has:
 - `apiUrl: string` (required)
 - `auth: object` (optional)
   - `accessToken: string` (optional; bearer token used for API calls)
-  - `tokenType: string` (optional; default `Bearer`)
+  - `tokenType: string` (optional; MUST be `Bearer` when present)
   - `expiresAt: string` (optional; RFC3339 timestamp)
+- `oidc: object` (required for `ebo auth login`)
+  - `issuerUrl: string` (required; OIDC issuer base URL)
+  - `clientId: string` (required)
+  - `scopes: array[string]` (required; MUST include `openid`)
 
 Notes:
 
-- The CLI MAY store additional fields, but MUST preserve unknown fields when rewriting config (forward compatibility).
+- The CLI MUST preserve unknown fields when rewriting config.
+- The CLI MUST NOT write additional unknown top-level keys except under `x-ebo` (reserved extension namespace).
 
 ### Required profile behavior (normative)
 
@@ -210,7 +241,7 @@ If no `apiUrl` can be resolved for a command that requires the API, the CLI MUST
 
 This table is normative: the CLI MUST provide commands that map to these API operations.
 
-| Use case | OpenAPI operationId | Endpoint | Required CLI command (proposed) |
+| Use case | OpenAPI operationId | Endpoint | Required CLI command |
 | --- | --- | --- | --- |
 | UC-01 list visible trips | `listVisibleTripsForMember` | `GET /trips` | `trip list` |
 | UC-01 list my draft trips | `listMyDraftTrips` | `GET /trips/drafts` | `trip drafts` |
@@ -251,8 +282,14 @@ The CLI MUST provide:
 `auth login` requirements:
 
 - MUST be interactive.
-- MUST initiate a browser-based or device-code OIDC login flow (exact mechanism is an implementation detail).
+- MUST use the OAuth 2.0 Device Authorization Grant (RFC 8628) against the configured OIDC issuer:
+  - Discover endpoints via `GET {issuerUrl}/.well-known/openid-configuration`.
+  - Request a device code.
+  - Print `verification_uri` (or `verification_uri_complete`) and `user_code` to stderr.
+  - Attempt to open the system browser to the verification URL.
+  - Poll the token endpoint until success or timeout (timeout default: 5 minutes; overridable via `--timeout`).
 - MUST store the resulting bearer access token in the active profile.
+- MUST write `profiles.<name>.auth.tokenType = Bearer`.
 
 ### `profile` and `config` commands (required)
 
@@ -294,9 +331,9 @@ Secrets redaction rules (normative):
 - By default, `ebo config list` MUST redact secret values in all output formats.
   - Redaction string: `REDACTED`
 - A new flag `--include-secrets` MUST be supported on `ebo config list` only:
-  - If provided, secrets MAY be included in output.
+  - If provided, secrets MUST be included in JSON output.
   - If `--output table`, secrets MUST still be redacted (to reduce accidental screen leaks).
-  - If `--output json`, secrets MAY be included when `--include-secrets` is set.
+  - If `--output json`, secrets MUST be included when `--include-secrets` is set.
 
 Required keys that MUST be supported by `ebo config get/set`:
 
@@ -310,7 +347,7 @@ Required keys that MUST be supported by `ebo config get/set`:
 
 ## Worked examples
 
-These examples are normative demonstrations of intended UX. Exact formatting of tables may vary, but behavior and flag semantics MUST match.
+These examples are normative demonstrations of intended UX. Behavior and flag semantics MUST match.
 
 ### Create and use profiles with different base URLs
 
@@ -421,9 +458,9 @@ ebo --output json trip create --name "Test Trip" | jq .
 
 - For operations requiring idempotency, if you omit `--idempotency-key`, the CLI auto-generates one and includes it in JSON at `meta.idempotencyKey`.
 
-## Command specifications (proposed)
+## Command specifications
 
-This section defines commands and flags. Items labeled **(proposed)** remain open; everything else is normative.
+This section defines commands and flags. Unless a subsection is explicitly marked “(proposed)”, it is normative.
 
 ### Trips
 
@@ -464,7 +501,7 @@ Notes:
 - **Maps to**: `PATCH /trips/{tripId}` (`updateTrip`)
 - **Idempotency**: requires `Idempotency-Key` (see Idempotency contract)
 - **Description**: Applies a partial update to a trip (draft or published). For drafts, auth depends on draft visibility; for published, caller must be organizer.
-- **Patch options (proposed)**:
+- **Patch options**:
   - `--name <string>`
   - `--description <string>` / `--clear-description`
   - `--start-date <YYYY-MM-DD>` / `--clear-start-date`
@@ -488,8 +525,21 @@ Notes:
   - flags (individual fields)
   - file-based patch (`--from-file`)
   - editor mode (`--edit`)
-- The CLI SHOULD support `--prompt` as a convenience for quick entry.
+- The CLI MUST support `--prompt`.
 - If multiple patch modes are specified together, the CLI MUST error (exit code `2`).
+- Clearing semantics:
+  - Clearing a field MUST be done via the explicit `--clear-*` flag for that field.
+  - Providing empty strings to “clear” fields via the non-clear flags MUST NOT be supported.
+- Date/time semantics:
+  - `--start-date` and `--end-date` MUST accept only `YYYY-MM-DD`.
+  - Time elements MUST NOT be accepted on these flags in v1.
+- Meeting latitude/longitude semantics:
+  - If either `--meeting-lat` or `--meeting-lng` is provided, the other MUST also be provided; otherwise the CLI MUST fail with exit code `2` and make no request.
+  - No combined “single meeting location flag” is supported in v1; use the granular meeting flags or `--from-file`/`--edit`.
+- Artifact semantics:
+  - `--artifact-id` is replace-only and ordered: if provided one or more times, it replaces the entire artifact list in the given order.
+- Multi-line text semantics:
+  - Multi-line values for text fields MUST be provided via `--from-file`, `--edit`, or `--prompt` (not via flags).
 
 #### `trip visibility <tripId> --public|--private`
 
@@ -580,11 +630,18 @@ Output behavior:
 
 - **Maps to**: `PATCH /members/me` (`updateMyMemberProfile`)
 - **Idempotency**: requires `Idempotency-Key` (see Idempotency contract)
-- **Patch options (proposed)**:
+- **Patch options**:
   - `--display-name <string>` / `--clear-display-name` (note: server requires non-empty if provided)
   - `--email <email>` (cannot be cleared)
   - `--group-alias-email <email>` / `--clear-group-alias-email`
-  - `--vehicle-make <string>` / `--vehicle-model <string>` / `--vehicle-tire-size <string>` / `--vehicle-notes <string>` (etc.)
+  - `--vehicle-make <string>` / `--clear-vehicle-make`
+  - `--vehicle-model <string>` / `--clear-vehicle-model`
+  - `--vehicle-tire-size <string>` / `--clear-vehicle-tire-size`
+  - `--vehicle-lift-lockers <string>` / `--clear-vehicle-lift-lockers`
+  - `--vehicle-fuel-range <string>` / `--clear-vehicle-fuel-range`
+  - `--vehicle-recovery-gear <string>` / `--clear-vehicle-recovery-gear`
+  - `--vehicle-ham-radio-call-sign <string>` / `--clear-vehicle-ham-radio-call-sign`
+  - `--vehicle-notes <string>` / `--clear-vehicle-notes`
   - `--clear-vehicle`
   - `--idempotency-key <string>` (optional; auto-generated if omitted)
   - `--from-file <path>` (optional; JSON or YAML; see File-based requests)
@@ -594,6 +651,12 @@ Output behavior:
 Notes:
 
 - If multiple patch modes are specified together, the CLI MUST error (exit code `2`).
+- Clearing semantics:
+  - Clearing a field MUST be done via the explicit `--clear-*` flag for that field.
+  - Clearing the entire vehicle profile MUST be done via `--clear-vehicle`.
+  - Providing empty strings to “clear” fields via the non-clear flags MUST NOT be supported.
+- Multi-line text semantics:
+  - Multi-line values for text fields (e.g., `--vehicle-notes`) MUST be provided via `--from-file`, `--edit`, or `--prompt` (not via flags).
 
 ---
 
@@ -619,8 +682,8 @@ When `--from-file <path>` is provided:
 When `--edit` is provided:
 
 - The CLI MUST open the user’s editor:
-  - `$EBO_EDITOR` if set, else `$EDITOR`, else fall back to a sensible default (implementation detail).
-- The CLI MUST present a JSON or YAML template of the request (format selection is an implementation detail, but MUST be deterministic).
+  - `$EBO_EDITOR` if set, else `$EDITOR`, else `vi`.
+- The CLI MUST present a YAML template of the request.
 - The CLI MUST parse the edited content as JSON/YAML and submit it as the request.
 - The CLI MUST NOT perform markdown/html rendering; the buffer is plain text.
 
@@ -631,5 +694,5 @@ When `--edit` is provided:
 When `--prompt` is provided:
 
 - The CLI MUST guide the user through entering fields **one at a time**.
-- It MUST support multi-line entry for text fields (implementation detail: repeated prompts or editor handoff are acceptable).
+- It MUST support multi-line entry for text fields by launching editor mode for those fields (same editor resolution rules as `--edit`).
 - It MUST build the same JSON/YAML request shape as the file/editor modes and submit it.
