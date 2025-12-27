@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +27,7 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 	}
 
 	defaults := cliopts.DefaultGlobalOptions()
+	var resolved cliopts.Resolved
 
 	cmd := &cobra.Command{
 		Use:           "ebo",
@@ -31,17 +35,31 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 		SilenceErrors: true,
 		SilenceUsage:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			resolved, err := cliopts.ResolveGlobalOptions(cmd.Flags(), deps.Env, defaults)
+			r, err := cliopts.ResolveGlobalOptions(cmd.Flags(), deps.Env, defaults)
 			if err != nil {
-				return err
+				return exitcode.New(exitcode.KindUsage, "invalid flags", err)
 			}
+			resolved = r
 			if deps.OnResolved != nil {
-				deps.OnResolved(resolved)
+				deps.OnResolved(r)
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Root currently has no subcommands (Issue #9 scope). Print help.
+			if resolved.Options.Output == cliopts.OutputJSON {
+				b := &bytes.Buffer{}
+				cmd.SetOut(b)
+				_ = cmd.Help()
+				cmd.SetOut(deps.Stdout)
+
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: map[string]any{
+						"help": b.String(),
+					},
+					Meta: envelope.Meta{APIURL: resolved.Options.APIURL, Profile: resolved.Options.Profile},
+				})
+			}
 			return cmd.Help()
 		},
 	}
@@ -53,7 +71,7 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 
 	// Ensure PersistentPreRunE sees persistent flags as well.
 	cmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return fmt.Errorf("%w", err)
+		return fmt.Errorf("%w", exitcode.New(exitcode.KindUsage, "usage error", err))
 	})
 
 	return cmd

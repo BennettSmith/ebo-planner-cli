@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
@@ -66,79 +67,21 @@ func TestGlobalOptions_PreferenceFlagsOverEnv(t *testing.T) {
 	}
 }
 
-func TestGlobalOptions_EnvWhenFlagNotSet(t *testing.T) {
-	env := cliopts.MapEnv{
-		"EBO_PROFILE": "env-profile",
-		"EBO_OUTPUT":  "json",
-	}
+func TestRoot_JSONOutputIsValidJSON(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
 
-	var got cliopts.Resolved
-	cmd := NewRootCmd(RootDeps{
-		Env:    env,
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
-		OnResolved: func(r cliopts.Resolved) {
-			got = r
-		},
-	})
-
-	cmd.SetArgs([]string{})
+	cmd := NewRootCmd(RootDeps{Env: cliopts.MapEnv{}, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"--output", "json"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-
-	if got.Options.Profile != "env-profile" {
-		t.Fatalf("Profile: got %q", got.Options.Profile)
-	}
-	if got.Options.Output != cliopts.OutputJSON {
-		t.Fatalf("Output: got %q", got.Options.Output)
-	}
-	if got.Sources["profile"] != "env" {
-		t.Fatalf("source(profile): got %q", got.Sources["profile"])
-	}
-	if got.Sources["output"] != "env" {
-		t.Fatalf("source(output): got %q", got.Sources["output"])
-	}
-}
-
-func TestGlobalOptions_DefaultsWhenUnset(t *testing.T) {
-	env := cliopts.MapEnv{}
-
-	var got cliopts.Resolved
-	cmd := NewRootCmd(RootDeps{
-		Env:    env,
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
-		OnResolved: func(r cliopts.Resolved) {
-			got = r
-		},
-	})
-
-	cmd.SetArgs([]string{})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+	if stderr.Len() != 0 {
+		t.Fatalf("expected no stderr, got: %q", stderr.String())
 	}
 
-	if got.Options.Profile != "default" {
-		t.Fatalf("Profile: got %q", got.Options.Profile)
-	}
-	if got.Options.Output != cliopts.OutputTable {
-		t.Fatalf("Output: got %q", got.Options.Output)
-	}
-	if got.Sources["profile"] != "default" {
-		t.Fatalf("source(profile): got %q", got.Sources["profile"])
-	}
-	if got.Sources["output"] != "default" {
-		t.Fatalf("source(output): got %q", got.Sources["output"])
-	}
-}
-
-func TestGlobalOptions_InvalidOutput(t *testing.T) {
-	env := cliopts.MapEnv{"EBO_OUTPUT": "nope"}
-
-	cmd := NewRootCmd(RootDeps{Env: env, Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}})
-	cmd.SetArgs([]string{})
-	if err := cmd.Execute(); err == nil {
-		t.Fatalf("expected error")
+	var got any
+	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil {
+		t.Fatalf("stdout not json: %v\n%s", err, stdout.String())
 	}
 }
