@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).
 - Added deterministic OpenAPI client generation (`make gen`) driven by `spec.lock`.
 - Added YAML-backed config storage with profile support and precedence resolution (preserves unknown fields on rewrite).
 - Added a stable JSON output envelope and standardized exit-code mapping for errors.
