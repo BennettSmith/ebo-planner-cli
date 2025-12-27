@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- Added a stable JSON output envelope and standardized exit-code mapping for errors.
 - Initialized the Go module and added a minimal `ebo` root command with global flags and environment variable equivalents.
 
 ### Changed
