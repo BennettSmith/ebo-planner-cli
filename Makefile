@@ -23,9 +23,9 @@ ci: changelog-verify
 			exit 1; \
 		fi; \
 		go vet ./...; \
-		go test ./...; \
+		go test ./... -count=1; \
 		covfile="$$(mktemp)"; \
-		go test ./internal/... -coverprofile="$$covfile" >/dev/null; \
+		go test ./internal/... -count=1 -coverprofile="$$covfile" >/dev/null; \
 		total="$$(go tool cover -func="$$covfile" | awk '/^total:/{gsub(/%/,"",$$3); print $$3}')"; \
 		rm -f "$$covfile"; \
 		echo "Internal coverage: $$total%"; \
