@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- Added an architecture dependency guard test to enforce hex-layer import rules in CI.
 - Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).
 - Added deterministic OpenAPI client generation (`make gen`) driven by `spec.lock`.
 - Added YAML-backed config storage with profile support and precedence resolution (preserves unknown fields on rewrite).
