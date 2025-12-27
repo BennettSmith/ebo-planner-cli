@@ -77,6 +77,10 @@ Key decisions for v1:
 - **Meeting location updates**: independent field updates supported with explicit clearing
 - **Interactive prompt mode**: comprehensive guided entry with nested structure support
 
+Implementation dependency choices are recorded as ADRs:
+
+- `docs/adr/0001-cli-go-modules-for-v1.md`
+
 ---
 
 ## Global behavior
