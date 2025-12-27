@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- Documented hexagonal architecture boundaries and introduced an initial `internal/` package skeleton to guide CLI implementation layering.
 
 ### Changed
 
