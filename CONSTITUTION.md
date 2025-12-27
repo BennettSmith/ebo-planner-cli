@@ -100,13 +100,15 @@ If a CLI feature would require a new endpoint, a changed request/response shape,
 ### 6.1.4 Automation via `gh`
 
 - Cursor agents SHOULD use the GitHub CLI (`gh`) to create PRs and set titles/descriptions.
-- Cursor agents MUST enable auto-merge using **squash** for routine changes (so PRs merge automatically once required checks/reviews are satisfied).
+- Cursor agents MUST NOT enable GitHub auto-merge.
+- Cursor agents MUST NOT merge PRs.
+- When work is complete, the agent MUST leave the PR open for a human maintainer to review and merge manually.
 
 Example:
 
 ```bash
 gh pr create --fill
-gh pr merge --auto --squash
+gh pr comment -b "Ready for review. All required checks should pass; please merge manually when you're satisfied."
 ```
 
 ## 6.2 Cursor agent working cadence (mandatory)
@@ -147,7 +149,7 @@ An issue is Done only when:
 ### 6.2.5 PR hygiene
 
 - PRs should stay small and focused on one issue.
-- Prefer squash-merge with auto-merge enabled (see 6.1.4).
+- Prefer squash-merge, but do not enable auto-merge (see 6.1.4).
 - If an issue needs to be split, the agent MUST create follow-up issues and keep the Project Order consistent.
 
 ### 6.2.6 Incremental commits (recommended)
