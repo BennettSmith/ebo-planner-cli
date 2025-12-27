@@ -8,11 +8,14 @@ import (
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/BennettSmith/ebo-planner-cli/internal/ports/out"
 	"github.com/spf13/cobra"
 )
 
 type RootDeps struct {
 	Env cliopts.EnvProvider
+
+	ConfigStore out.ConfigStore
 
 	Stdout io.Writer
 	Stderr io.Writer
@@ -73,6 +76,8 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 	cmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return fmt.Errorf("%w", exitcode.New(exitcode.KindUsage, "usage error", err))
 	})
+
+	addConfigCommands(cmd, deps)
 
 	return cmd
 }

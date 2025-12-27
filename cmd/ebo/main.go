@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/in/cli"
+	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/configfile"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
@@ -16,7 +17,8 @@ func main() {
 	defaults := cliopts.DefaultGlobalOptions()
 	peek := cliopts.PeekGlobalOptions(os.Args[1:], env, defaults)
 
-	cmd := cli.NewRootCmd(cli.RootDeps{Env: env, Stdout: os.Stdout, Stderr: os.Stderr})
+	store := configfile.Store{Env: configfile.OSEnv{}}
+	cmd := cli.NewRootCmd(cli.RootDeps{Env: env, ConfigStore: store, Stdout: os.Stdout, Stderr: os.Stderr})
 	if err := cmd.Execute(); err != nil {
 		// Best-effort classify errors into the required exit code contract.
 		mapped := err
