@@ -1,6 +1,6 @@
 # ebo-planner-cli — CLI Specification (Draft)
 
-Status: **DRAFT (partially finalized; remaining open items in “Open design decisions”)**
+Status: **DRAFT (v1 conventions finalized; some per-command patch flags remain “(proposed)”)**
 
 This document specifies the required behavior and command surface of the **East Bay Overland Trip Planning CLI**.
 
@@ -72,6 +72,15 @@ The CLI MUST support these flags on every command (either at root or inherited):
 - `--timeout <duration>`: request timeout (e.g., `10s`, `2m`)
 - `--verbose`: verbose HTTP/debug logging to stderr (never to stdout)
 
+Environment variable equivalents (MUST be supported):
+
+- `EBO_API_URL` (equivalent to `--api-url`)
+- `EBO_PROFILE` (equivalent to `--profile`)
+- `EBO_OUTPUT` (equivalent to `--output`)
+- `EBO_NO_COLOR=1` (equivalent to `--no-color`)
+- `EBO_TIMEOUT` (equivalent to `--timeout`)
+- `EBO_VERBOSE=1` (equivalent to `--verbose`)
+
 ### Exit codes
 
 Minimum required exit code contract:
@@ -131,22 +140,69 @@ For user-supplied free-text fields (e.g., trip `name`, `description`, `difficult
 
 Profiles are **required**.
 
-Minimum config items:
+### Storage location (normative)
 
-- API base URL
-- stored access token (or token retrieval method)
+The CLI MUST store its configuration in the OS user config directory:
 
-Required profile behavior:
+- Determine `CONFIG_DIR` using the platform’s standard user config directory resolution (e.g., Go `os.UserConfigDir()`).
+- Store config under:
+  - `CONFIG_DIR/ebo/config.yaml`
+
+If `EBO_CONFIG_DIR` is set, the CLI MUST use it as `CONFIG_DIR` (overriding OS resolution).
+
+The CLI MUST NOT write secrets to project directories or the working directory by default.
+
+### File permissions (normative)
+
+- Config files that contain credentials MUST be created with restrictive permissions (best effort):
+  - POSIX: `0600`
+- The CLI MUST NOT print tokens in normal output (only `ebo auth token print`).
+
+### Config schema (normative)
+
+The config file MUST be YAML with this shape (keys are normative):
+
+- `currentProfile: string` (default: `default`)
+- `profiles: map[string]Profile`
+
+Where `Profile` has:
+
+- `apiUrl: string` (required)
+- `auth: object` (optional)
+  - `accessToken: string` (optional; bearer token used for API calls)
+  - `tokenType: string` (optional; default `Bearer`)
+  - `expiresAt: string` (optional; RFC3339 timestamp)
+
+Notes:
+
+- The CLI MAY store additional fields, but MUST preserve unknown fields when rewriting config (forward compatibility).
+
+### Required profile behavior (normative)
 
 - The CLI MUST support `--profile <name>` (default: `default`).
 - Each profile MUST have its own:
   - `apiUrl`
-  - access token (or auth session)
+  - auth session/token fields
+- `--api-url` / `EBO_API_URL` MUST override the selected profile’s `apiUrl` for that invocation only (no persistence).
 
-Recommended:
+### Precedence rules (normative)
 
-- profiles keyed by name (e.g., `default`, `staging`, `prod`)
-- per-profile token storage
+When resolving effective settings:
+
+1. CLI flags (highest precedence)
+2. Environment variables
+3. Config file (`currentProfile` + selected profile values)
+4. Built-in defaults (lowest precedence)
+
+If no `apiUrl` can be resolved for a command that requires the API, the CLI MUST fail with exit code `2` and guidance to set it (e.g., `ebo profile set ... --api-url ...`).
+
+### Minimum required config items
+
+- API base URL
+- stored access token (or token retrieval method)
+
+- API base URL (per profile: `profiles.<name>.apiUrl`)
+- stored access token/session (per profile: `profiles.<name>.auth.*`)
 
 ---
 
@@ -198,13 +254,172 @@ The CLI MUST provide:
 - MUST initiate a browser-based or device-code OIDC login flow (exact mechanism is an implementation detail).
 - MUST store the resulting bearer access token in the active profile.
 
-### `config` commands (recommended)
+### `profile` and `config` commands (required)
 
-- `config get [key]`
-- `config set <key> <value>`
-- `config list`
+The CLI MUST provide a stable, scriptable interface for managing profiles and config.
+
+#### `ebo profile` (required)
+
+- `ebo profile list`
+  - Lists known profiles.
+- `ebo profile show [PROFILE]`
+  - Shows resolved profile config (default: current profile).
+- `ebo profile create <PROFILE> --api-url <url>`
+  - Creates a new profile. MUST fail if the profile already exists (exit `5`).
+- `ebo profile set <PROFILE> --api-url <url>`
+  - Sets the base URL for a profile. MUST create the profile if it does not exist.
+- `ebo profile use <PROFILE>`
+  - Sets `currentProfile`. MUST fail if profile does not exist (exit `2`).
+- `ebo profile delete <PROFILE>`
+  - Deletes a profile. MUST fail (exit `5`) if deleting would leave zero profiles.
+  - If deleting the current profile, the CLI MUST set `currentProfile` to `default` if it exists, otherwise fail with guidance.
+
+#### `ebo config` (required)
+
+These are low-level escape hatches for automation and debugging. Keys are dot-paths into the YAML schema.
+
+- `ebo config path`
+  - Prints the config file path to stdout.
+- `ebo config get <key>`
+  - Prints the value for `<key>` to stdout. If key not found, exit `4`.
+- `ebo config set <key> <value>`
+  - Sets a config value (stringly-typed). MUST create missing objects/maps along the path.
+- `ebo config unset <key>`
+  - Removes a key (no-op if missing).
+- `ebo config list`
+  - Prints the entire config file.
+
+Secrets redaction rules (normative):
+
+- By default, `ebo config list` MUST redact secret values in all output formats.
+  - Redaction string: `REDACTED`
+- A new flag `--include-secrets` MUST be supported on `ebo config list` only:
+  - If provided, secrets MAY be included in output.
+  - If `--output table`, secrets MUST still be redacted (to reduce accidental screen leaks).
+  - If `--output json`, secrets MAY be included when `--include-secrets` is set.
+
+Required keys that MUST be supported by `ebo config get/set`:
+
+- `currentProfile`
+- `profiles.<name>.apiUrl`
+- `profiles.<name>.auth.accessToken`
+- `profiles.<name>.auth.tokenType`
+- `profiles.<name>.auth.expiresAt`
 
 ---
+
+## Worked examples
+
+These examples are normative demonstrations of intended UX. Exact formatting of tables may vary, but behavior and flag semantics MUST match.
+
+### Create and use profiles with different base URLs
+
+Create profiles:
+
+```bash
+ebo profile create dev --api-url http://localhost:8081
+ebo profile create staging --api-url https://staging-api.eastbayoverland.com
+```
+
+Select a profile for subsequent commands:
+
+```bash
+ebo profile use dev
+ebo auth login
+ebo trip list
+```
+
+Run a single command against a different profile without changing `currentProfile`:
+
+```bash
+ebo --profile staging trip list
+```
+
+### Override base URL for a single invocation
+
+```bash
+ebo --profile staging --api-url http://localhost:8081 trip list
+```
+
+Same via env vars:
+
+```bash
+EBO_PROFILE=staging EBO_API_URL=http://localhost:8081 ebo trip list
+```
+
+### Configure base URL via profile vs config
+
+Preferred (profile command):
+
+```bash
+ebo profile set staging --api-url https://staging-api.eastbayoverland.com
+```
+
+Low-level escape hatch (config command):
+
+```bash
+ebo config set profiles.staging.apiUrl https://staging-api.eastbayoverland.com
+```
+
+### Create a trip from a file (YAML)
+
+`trip.yaml`:
+
+```yaml
+name: "Snow Run Planning Day"
+```
+
+Create the draft:
+
+```bash
+ebo trip create --from-file trip.yaml
+```
+
+### Update a trip from a file (YAML patch)
+
+`trip-patch.yaml`:
+
+```yaml
+description: |-
+  Meet at the usual spot.
+  Bring full fuel and recovery gear.
+startDate: "2026-01-10"
+endDate: "2026-01-10"
+```
+
+Apply patch:
+
+```bash
+ebo trip update TRIP_ID --from-file trip-patch.yaml
+```
+
+### Update a trip using the editor
+
+```bash
+ebo trip update TRIP_ID --edit
+```
+
+### Update a trip using interactive prompt mode
+
+```bash
+ebo trip update TRIP_ID --prompt
+```
+
+### Publish a trip and print announcement copy
+
+To print announcement copy, `--print-announcement` is required and stdout MUST contain only the announcement:
+
+```bash
+ebo trip publish TRIP_ID --print-announcement
+```
+
+### Scripts: JSON output and idempotency metadata
+
+```bash
+ebo --output json trip create --name "Test Trip" | jq .
+```
+
+- For operations requiring idempotency, if you omit `--idempotency-key`, the CLI auto-generates one and includes it in JSON at `meta.idempotencyKey`.
 
 ## Command specifications (proposed)
 
