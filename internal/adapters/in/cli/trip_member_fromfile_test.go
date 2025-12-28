@@ -204,6 +204,361 @@ func TestTripCreate_FromFile_MapsToRequestStruct(t *testing.T) {
 	}
 }
 
+func TestTripCreate_Prompt_MapsToRequestStruct(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("My Trip\n"))
+	cmd.SetArgs([]string{"trip", "create", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.createCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.createCalls)
+	}
+	if api.lastCreateReq.Name != "My Trip" {
+		t.Fatalf("name: %q", api.lastCreateReq.Name)
+	}
+}
+
+func TestTripCreate_Prompt_Aborted_NoAPICall_Exit130(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetContext(ctx)
+	cmd.SetIn(bytes.NewBufferString("anything\n"))
+	cmd.SetArgs([]string{"trip", "create", "--prompt"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != 130 {
+		t.Fatalf("expected exit 130, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.createCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.createCalls)
+	}
+}
+
+func TestTripUpdate_Prompt_MapsToRequestStruct(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	// description inline, then artifactIds list, then blank to finish list
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("desc line\nid1\nid2\n\n"))
+	cmd.SetArgs([]string{"trip", "update", "t1", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.updateCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.updateCalls)
+	}
+	if api.lastUpdateReq.Description == nil || *api.lastUpdateReq.Description != "desc line" {
+		if api.lastUpdateReq.Description == nil {
+			t.Fatalf("expected description set")
+		}
+		t.Fatalf("description: %#v", *api.lastUpdateReq.Description)
+	}
+	if api.lastUpdateReq.ArtifactIds == nil || len(*api.lastUpdateReq.ArtifactIds) != 2 {
+		t.Fatalf("artifactIds: %#v", api.lastUpdateReq.ArtifactIds)
+	}
+	if (*api.lastUpdateReq.ArtifactIds)[0] != "id1" || (*api.lastUpdateReq.ArtifactIds)[1] != "id2" {
+		t.Fatalf("artifactIds: %#v", *api.lastUpdateReq.ArtifactIds)
+	}
+}
+
+func TestTripUpdate_Prompt_EditorPath_ParsesEditedContent(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "text: |-\n  hi\n  there")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	// blank line triggers editor for description, then blank ends artifactIds list
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("\n\n"))
+	cmd.SetArgs([]string{"trip", "update", "t1", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.updateCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.updateCalls)
+	}
+	if api.lastUpdateReq.Description == nil || *api.lastUpdateReq.Description != "hi\nthere" {
+		if api.lastUpdateReq.Description == nil {
+			t.Fatalf("expected description set")
+		}
+		t.Fatalf("description: %#v", *api.lastUpdateReq.Description)
+	}
+}
+
+func TestTripUpdate_Prompt_AndFromFile_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	p := writeTempFile(t, "patch.yaml", "description: x\n")
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--prompt", "--from-file", p})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestTripUpdate_NoMode_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--idempotency-key", "k1"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestTripUpdate_EditAndPrompt_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--edit", "--prompt"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestTripUpdate_Prompt_Aborted_NoAPICall_Exit130(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetContext(ctx)
+	cmd.SetIn(bytes.NewBufferString("anything\n"))
+	cmd.SetArgs([]string{"trip", "update", "t1", "--prompt"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != 130 {
+		t.Fatalf("expected exit 130, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestMemberUpdate_Prompt_MapsToRequestStruct(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	// displayName, then configure vehicle? (blank -> default no)
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("New Name\n\n"))
+	cmd.SetArgs([]string{"member", "update", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.memberCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.memberCalls)
+	}
+	if api.lastMemberReq.DisplayName == nil || *api.lastMemberReq.DisplayName != "New Name" {
+		if api.lastMemberReq.DisplayName == nil {
+			t.Fatalf("expected displayName set")
+		}
+		t.Fatalf("displayName: %#v", *api.lastMemberReq.DisplayName)
+	}
+	if api.lastMemberReq.VehicleProfile != nil {
+		t.Fatalf("expected vehicleProfile unset, got %#v", api.lastMemberReq.VehicleProfile)
+	}
+}
+
+func TestMemberUpdate_Prompt_VehicleNotesInline_MapsToRequestStruct(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	// displayName, configure vehicle yes, notes inline
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("New Name\ny\nnote\n"))
+	cmd.SetArgs([]string{"member", "update", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.memberCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.memberCalls)
+	}
+	if api.lastMemberReq.VehicleProfile == nil || api.lastMemberReq.VehicleProfile.Notes == nil {
+		t.Fatalf("expected vehicleProfile.notes set")
+	}
+	if *api.lastMemberReq.VehicleProfile.Notes != "note" {
+		t.Fatalf("notes: %#v", *api.lastMemberReq.VehicleProfile.Notes)
+	}
+}
+
+func TestMemberUpdate_Prompt_VehicleNotesEditor_ParsesEditedContent(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "text: |-\n  n1\n  n2")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	// displayName blank, configure vehicle yes, notes blank -> editor
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetIn(bytes.NewBufferString("\ny\n\n"))
+	cmd.SetArgs([]string{"member", "update", "--prompt", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.memberCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.memberCalls)
+	}
+	if api.lastMemberReq.VehicleProfile == nil || api.lastMemberReq.VehicleProfile.Notes == nil {
+		t.Fatalf("expected vehicleProfile.notes set")
+	}
+	if *api.lastMemberReq.VehicleProfile.Notes != "n1\nn2" {
+		t.Fatalf("notes: %#v", *api.lastMemberReq.VehicleProfile.Notes)
+	}
+}
+
+func TestMemberUpdate_Prompt_AndFromFile_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	p := writeTempFile(t, "member.yaml", "displayName: x\n")
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--prompt", "--from-file", p})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
+	}
+}
+
+func TestMemberUpdate_NoMode_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--idempotency-key", "k1"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
+	}
+}
+
+func TestMemberUpdate_EditAndPrompt_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--edit", "--prompt"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
+	}
+}
+
+func TestMemberUpdate_Prompt_Aborted_NoAPICall_Exit130(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetContext(ctx)
+	cmd.SetIn(bytes.NewBufferString("anything\n"))
+	cmd.SetArgs([]string{"member", "update", "--prompt"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != 130 {
+		t.Fatalf("expected exit 130, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
+	}
+}
+
 func TestTripCreate_NameFlag_MapsToRequestStruct(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}

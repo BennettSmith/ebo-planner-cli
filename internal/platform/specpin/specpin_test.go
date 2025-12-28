@@ -48,6 +48,14 @@ func TestResolveSpecDir_EnvAbsolute(t *testing.T) {
 	}
 }
 
+func TestResolveSpecDir_EnvRelative(t *testing.T) {
+	got := ResolveSpecDir(map[string]string{"EBO_SPEC_DIR": "spec"}, "/repo/cli")
+	want := filepath.Clean("/repo/cli/spec")
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestVerifyRefExists_OK(t *testing.T) {
 	r := fakeRunner{out: map[string][]byte{
 		"git -C /spec rev-parse --verify v1": []byte("v1\n"),

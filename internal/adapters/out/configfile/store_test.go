@@ -201,6 +201,18 @@ func TestPath_UsesOSEnv(t *testing.T) {
 	}
 }
 
+func TestPath_NilEnv_DefaultsToOSEnv(t *testing.T) {
+	ctx := context.Background()
+	s := Store{Env: nil}
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if !strings.HasSuffix(p, string(os.PathSeparator)+"ebo"+string(os.PathSeparator)+"config.yaml") {
+		t.Fatalf("unexpected path: %q", p)
+	}
+}
+
 func TestSave_FailsWhenConfigDirIsFile(t *testing.T) {
 	ctx := context.Background()
 	base := t.TempDir()
@@ -213,6 +225,34 @@ func TestSave_FailsWhenConfigDirIsFile(t *testing.T) {
 	doc := config.NewEmptyDocument()
 	if err := s.Save(ctx, doc); err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestLoad_EmptyFileReturnsEmptyDoc(t *testing.T) {
+	ctx := context.Background()
+	base := t.TempDir()
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": base}}
+
+	p, err := s.Path(ctx)
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(p, []byte(""), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	doc, err := s.Load(ctx)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if doc.Root == nil {
+		t.Fatalf("expected root")
+	}
+	if _, err := config.ViewOf(doc); err != nil {
+		t.Fatalf("view: %v", err)
 	}
 }
 
