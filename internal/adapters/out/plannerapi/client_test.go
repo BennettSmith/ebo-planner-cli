@@ -427,6 +427,207 @@ func TestAdapter_RemoveTripOrganizer_HitsEndpointAndSendsIdempotencyHeader(t *te
 	}
 }
 
+func TestAdapter_SetMyRSVP_HitsEndpointAndSendsIdempotencyHeader(t *testing.T) {
+	seen := ""
+	seenKey := ""
+	seenBody := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		seenKey = r.Header.Get("Idempotency-Key")
+		b, _ := io.ReadAll(r.Body)
+		seenBody = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"myRsvp":{"tripId":"t1","memberId":"m1","response":"YES","updatedAt":"2025-01-01T00:00:00Z"}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetMyRSVP(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetMyRSVPRequest{Response: "YES"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "PUT /trips/t1/rsvp" {
+		t.Fatalf("got %q", seen)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+	if !strings.Contains(seenBody, `"response":"YES"`) {
+		t.Fatalf("body: %q", seenBody)
+	}
+}
+
+func TestAdapter_GetMyRSVPForTrip_HitsEndpoint(t *testing.T) {
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"myRsvp":{"tripId":"t1","memberId":"m1","response":"YES","updatedAt":"2025-01-01T00:00:00Z"}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetMyRSVPForTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "GET /trips/t1/rsvp/me" {
+		t.Fatalf("got %q", seen)
+	}
+}
+
+func TestAdapter_GetTripRSVPSummary_HitsEndpoint(t *testing.T) {
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"rsvpSummary":{"attendingMembers":[],"attendingRigs":0,"notAttendingMembers":[]}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetTripRSVPSummary(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "GET /trips/t1/rsvps" {
+		t.Fatalf("got %q", seen)
+	}
+}
+
+func TestAdapter_SetMyRSVP_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.SetMyRSVP(context.Background(), "://bad", "tok", gen.TripId("t1"), "k1", gen.SetMyRSVPRequest{Response: "YES"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetMyRSVPForTrip_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetMyRSVPForTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_SetMyRSVP_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetMyRSVP(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetMyRSVPRequest{Response: "YES"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_SetMyRSVP_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetMyRSVP(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetMyRSVPRequest{Response: "YES"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetTripRSVPSummary_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.GetTripRSVPSummary(context.Background(), "://bad", "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetMyRSVPForTrip_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.GetMyRSVPForTrip(context.Background(), "://bad", "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetTripRSVPSummary_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetTripRSVPSummary(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetTripRSVPSummary_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetTripRSVPSummary(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_AddTripOrganizer_RequestErrorIsServer(t *testing.T) {
 	a := Adapter{}
 	_, err := a.AddTripOrganizer(context.Background(), "://bad", "tok", gen.TripId("t1"), "k1", gen.AddOrganizerRequest{MemberId: "m1"})

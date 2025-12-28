@@ -38,18 +38,27 @@ func main() {
 		code := exitcode.Code(mapped)
 
 		if peek.Output == cliopts.OutputJSON {
-			_ = envelope.WriteJSON(os.Stdout, envelope.Envelope{
-				Meta: envelope.Meta{APIURL: peek.APIURL, Profile: peek.Profile},
-				Error: &envelope.ErrorBody{
-					Code:    stringExitCodeKind(mapped),
-					Message: mapped.Error(),
-				},
-			})
+			_ = envelope.WriteJSON(os.Stdout, buildErrorEnvelope(peek, mapped))
 		} else {
 			_, _ = os.Stderr.WriteString(mapped.Error() + "\n")
 		}
 
 		os.Exit(code)
+	}
+}
+
+func buildErrorEnvelope(peek cliopts.GlobalOptions, mapped error) envelope.Envelope {
+	meta := envelope.Meta{APIURL: peek.APIURL, Profile: peek.Profile}
+	var ae *plannerapi.APIError
+	if errors.As(mapped, &ae) && ae != nil && ae.RequestID != "" {
+		meta.RequestID = ae.RequestID
+	}
+	return envelope.Envelope{
+		Meta: meta,
+		Error: &envelope.ErrorBody{
+			Code:    stringExitCodeKind(mapped),
+			Message: mapped.Error(),
+		},
 	}
 }
 

@@ -175,6 +175,52 @@ func (a Adapter) RemoveTripOrganizer(ctx context.Context, baseURL string, bearer
 	return resp, nil
 }
 
+func (a Adapter) SetMyRSVP(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetMyRSVPJSONRequestBody) (*gen.SetMyRSVPClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.SetMyRSVPParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.SetMyRSVPWithResponse(ctx, tripID, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) GetMyRSVPForTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.GetMyRSVPForTripClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.GetMyRSVPForTripWithResponse(ctx, tripID)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) GetTripRSVPSummary(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.GetTripRSVPSummaryClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.GetTripRSVPSummaryWithResponse(ctx, tripID)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) CancelTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey *string) (*gen.CancelTripClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {

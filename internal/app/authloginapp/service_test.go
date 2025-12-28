@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/oidcdevice"
 )
 
@@ -131,5 +132,20 @@ func TestLogin_NilStoreIsUnexpected(t *testing.T) {
 	_, err := svc.Login(context.Background(), config.Effective{Profile: "default"})
 	if err == nil {
 		t.Fatalf("expected error")
+	}
+}
+
+func TestLogin_MissingOIDCConfig_IsUsage(t *testing.T) {
+	doc := config.NewEmptyDocument()
+	doc, _ = config.WithProfileAPIURL(doc, "default", "http://x")
+
+	m := &memStore{doc: doc}
+	svc := Service{Store: m, OIDC: oidcdevice.Client{HTTP: &http.Client{}}, Open: &fakeOpen{}}
+	_, err := svc.Login(context.Background(), config.Effective{Profile: "default"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage exit 2, got %d", exitcode.Code(err))
 	}
 }
