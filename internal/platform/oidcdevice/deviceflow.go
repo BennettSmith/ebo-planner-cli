@@ -66,26 +66,32 @@ type Client struct {
 	Sleeper Sleeper
 }
 
-func (c Client) ensure() error {
+func (c Client) validate() error {
 	if c.HTTP == nil {
 		return fmt.Errorf("nil http client")
-	}
-	if c.Sleeper == nil {
-		c.Sleeper = RealSleeper{}
 	}
 	return nil
 }
 
 func Discover(ctx context.Context, httpc HTTPDoer, issuerURL string) (Discovery, error) {
+	if httpc == nil {
+		return Discovery{}, fmt.Errorf("nil http client")
+	}
 	issuerURL = strings.TrimRight(strings.TrimSpace(issuerURL), "/")
 	if issuerURL == "" {
 		return Discovery{}, fmt.Errorf("empty issuer url")
 	}
 	u := issuerURL + "/.well-known/openid-configuration"
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return Discovery{}, err
+	}
 	resp, err := httpc.Do(req)
 	if err != nil {
 		return Discovery{}, err
+	}
+	if resp == nil || resp.Body == nil {
+		return Discovery{}, fmt.Errorf("nil http response")
 	}
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
@@ -103,7 +109,7 @@ func Discover(ctx context.Context, httpc HTTPDoer, issuerURL string) (Discovery,
 }
 
 func (c Client) RequestDeviceCode(ctx context.Context, deviceEndpoint, clientID string, scopes []string) (DeviceCodeResponse, error) {
-	if err := c.ensure(); err != nil {
+	if err := c.validate(); err != nil {
 		return DeviceCodeResponse{}, err
 	}
 	form := url.Values{}
@@ -111,11 +117,17 @@ func (c Client) RequestDeviceCode(ctx context.Context, deviceEndpoint, clientID 
 	if len(scopes) > 0 {
 		form.Set("scope", strings.Join(scopes, " "))
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, deviceEndpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deviceEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return DeviceCodeResponse{}, err
+	}
 	req.Header.Set("content-type", "application/x-www-form-urlencoded")
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
 		return DeviceCodeResponse{}, err
+	}
+	if resp == nil || resp.Body == nil {
+		return DeviceCodeResponse{}, fmt.Errorf("nil http response")
 	}
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
@@ -133,8 +145,12 @@ func (c Client) RequestDeviceCode(ctx context.Context, deviceEndpoint, clientID 
 }
 
 func (c Client) PollToken(ctx context.Context, tokenEndpoint, clientID, deviceCode string, interval time.Duration) (TokenResponse, error) {
-	if err := c.ensure(); err != nil {
+	if err := c.validate(); err != nil {
 		return TokenResponse{}, err
+	}
+	sleeper := c.Sleeper
+	if sleeper == nil {
+		sleeper = RealSleeper{}
 	}
 	if interval <= 0 {
 		interval = 5 * time.Second
@@ -176,14 +192,14 @@ func (c Client) PollToken(ctx context.Context, tokenEndpoint, clientID, deviceCo
 			return TokenResponse{}, fmt.Errorf("token http %d: %s", resp.StatusCode, string(b))
 		}
 		if te.IsPending() {
-			if err := c.Sleeper.Sleep(ctx, interval); err != nil {
+			if err := sleeper.Sleep(ctx, interval); err != nil {
 				return TokenResponse{}, err
 			}
 			continue
 		}
 		if te.IsSlowDown() {
 			interval += 5 * time.Second
-			if err := c.Sleeper.Sleep(ctx, interval); err != nil {
+			if err := sleeper.Sleep(ctx, interval); err != nil {
 				return TokenResponse{}, err
 			}
 			continue
