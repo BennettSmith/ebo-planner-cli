@@ -3,8 +3,10 @@ package plannerapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
@@ -363,6 +365,142 @@ func TestAdapter_SetTripDraftVisibility_Maps404ToNotFound(t *testing.T) {
 
 	a := Adapter{}
 	_, err := a.SetTripDraftVisibility(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetDraftVisibilityRequest{DraftVisibility: "PUBLIC"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_AddTripOrganizer_HitsEndpointAndSendsIdempotencyHeader(t *testing.T) {
+	seen := ""
+	seenKey := ""
+	seenBody := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		seenKey = r.Header.Get("Idempotency-Key")
+		b, _ := io.ReadAll(r.Body)
+		seenBody = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"trip":{"tripId":"t1","status":"DRAFT","rsvpActionsEnabled":false,"organizers":[],"artifacts":[]}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.AddTripOrganizer(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.AddOrganizerRequest{MemberId: "m1"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "POST /trips/t1/organizers" {
+		t.Fatalf("got %q", seen)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+	if !strings.Contains(seenBody, `"memberId":"m1"`) {
+		t.Fatalf("body: %q", seenBody)
+	}
+}
+
+func TestAdapter_RemoveTripOrganizer_HitsEndpointAndSendsIdempotencyHeader(t *testing.T) {
+	seen := ""
+	seenKey := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		seenKey = r.Header.Get("Idempotency-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"trip":{"tripId":"t1","status":"DRAFT","rsvpActionsEnabled":false,"organizers":[],"artifacts":[]}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.RemoveTripOrganizer(context.Background(), srv.URL, "tok", gen.TripId("t1"), gen.MemberId("m1"), "k1")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "DELETE /trips/t1/organizers/m1" {
+		t.Fatalf("got %q", seen)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+}
+
+func TestAdapter_AddTripOrganizer_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.AddTripOrganizer(context.Background(), "://bad", "tok", gen.TripId("t1"), "k1", gen.AddOrganizerRequest{MemberId: "m1"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_RemoveTripOrganizer_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.RemoveTripOrganizer(context.Background(), "://bad", "tok", gen.TripId("t1"), gen.MemberId("m1"), "k1")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_AddTripOrganizer_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.AddTripOrganizer(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.AddOrganizerRequest{MemberId: "m1"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_RemoveTripOrganizer_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.RemoveTripOrganizer(context.Background(), srv.URL, "tok", gen.TripId("t1"), gen.MemberId("m1"), "k1")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_AddTripOrganizer_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.AddTripOrganizer(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.AddOrganizerRequest{MemberId: "m1"})
 	if err == nil {
 		t.Fatalf("expected error")
 	}

@@ -143,6 +143,38 @@ func (a Adapter) PublishTrip(ctx context.Context, baseURL string, bearerToken st
 	return resp, nil
 }
 
+func (a Adapter) AddTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.AddTripOrganizerJSONRequestBody) (*gen.AddTripOrganizerClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.AddTripOrganizerParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.AddTripOrganizerWithResponse(ctx, tripID, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) RemoveTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, memberID gen.MemberId, idempotencyKey string) (*gen.RemoveTripOrganizerClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.RemoveTripOrganizerParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.RemoveTripOrganizerWithResponse(ctx, tripID, memberID, params)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) CancelTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey *string) (*gen.CancelTripClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {
