@@ -122,3 +122,42 @@ func TestTokenSet_UsesCurrentProfileWhenEmpty(t *testing.T) {
 		t.Fatalf("token: %q", got)
 	}
 }
+
+type loadErrStore struct{ err error }
+
+func (l loadErrStore) Path(ctx context.Context) (string, error) { return "/x", nil }
+func (l loadErrStore) Load(ctx context.Context) (config.Document, error) {
+	return config.Document{}, l.err
+}
+func (l loadErrStore) Save(ctx context.Context, doc config.Document) error { return nil }
+
+func TestStatus_LoadErrorIsServer(t *testing.T) {
+	s := Service{Store: loadErrStore{err: context.Canceled}}
+	_, err := s.Status(context.Background())
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestTokenPrint_LoadErrorIsServer(t *testing.T) {
+	s := Service{Store: loadErrStore{err: context.Canceled}}
+	_, _, err := s.TokenPrint(context.Background())
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestTokenSet_EmptyPartIsUsage(t *testing.T) {
+	s := Service{Store: &memStore{doc: config.NewEmptyDocument()}}
+	if err := s.TokenSet(context.Background(), "default", "a..c"); err == nil {
+		t.Fatalf("expected error")
+	} else if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage, got %d", exitcode.Code(err))
+	}
+}

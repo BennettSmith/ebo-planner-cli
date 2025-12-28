@@ -247,3 +247,18 @@ func TestStore_Save_CreatesDirAndWritesFile(t *testing.T) {
 		t.Fatalf("expected file contents")
 	}
 }
+
+func TestStore_Save_MkdirAllFails(t *testing.T) {
+	base := t.TempDir()
+	blocker := filepath.Join(base, "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write blocker: %v", err)
+	}
+
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": blocker}}
+	doc := config.NewEmptyDocument()
+	doc, _ = config.SetString(doc, "profiles.default.apiUrl", "http://x")
+	if err := s.Save(context.Background(), doc); err == nil {
+		t.Fatalf("expected error")
+	}
+}
