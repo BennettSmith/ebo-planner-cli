@@ -26,7 +26,7 @@ ci: changelog-verify
 			exit 1; \
 		fi; \
 		go vet ./...; \
-		go test ./... -count=1; \
+		go list ./... | grep -v '/e2e$$' | xargs go test -count=1; \
 		covfile="$$(mktemp)"; \
 		pkgs="$$(go list ./internal/... | grep -v '/internal/gen')"; \
 		go test $$pkgs -count=1 -coverprofile="$$covfile" >/dev/null; \
@@ -61,3 +61,6 @@ gen:
 	@spec_path="$$(go run ./tools/specpin)"; \
 		echo "Generating OpenAPI client from $$spec_path..."; \
 		go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.5.1 -response-type-suffix ClientResponse -config oapi-codegen.yaml "$$spec_path"
+
+e2e:
+	@go test ./e2e -count=1
