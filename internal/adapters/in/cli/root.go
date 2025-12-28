@@ -79,6 +79,7 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 
 	addConfigCommands(cmd, deps)
 	addProfileCommands(cmd, deps)
+	addAuthCommands(cmd, deps)
 
 	return cmd
 }

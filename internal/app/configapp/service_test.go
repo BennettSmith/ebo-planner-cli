@@ -206,9 +206,17 @@ func TestService_ListJSON_LoadErrorIsServer(t *testing.T) {
 }
 
 func TestService_EnsureStore(t *testing.T) {
+	// nil store
 	s := Service{}
 	if err := s.EnsureStore(); err == nil {
 		t.Fatalf("expected error")
+	}
+
+	// non-nil store
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s = Service{Store: m}
+	if err := s.EnsureStore(); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
 	}
 }
 
