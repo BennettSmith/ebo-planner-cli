@@ -130,3 +130,63 @@ func TestAdapter_CancelTrip_Maps404ToNotFound(t *testing.T) {
 		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
 	}
 }
+
+func TestAdapter_UpdateTrip_SendsIdempotencyHeader(t *testing.T) {
+	seenKey := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			w.WriteHeader(500)
+			return
+		}
+		if r.URL.Path != "/trips/t1" {
+			w.WriteHeader(500)
+			return
+		}
+		seenKey = r.Header.Get("Idempotency-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"trip":{"tripId":"t1"}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.UpdateTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.UpdateTripJSONRequestBody{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+}
+
+func TestAdapter_UpdateMyMemberProfile_SendsIdempotencyHeader(t *testing.T) {
+	seenKey := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			w.WriteHeader(500)
+			return
+		}
+		if r.URL.Path != "/members/me" {
+			w.WriteHeader(500)
+			return
+		}
+		seenKey = r.Header.Get("Idempotency-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"member": map[string]any{
+				"memberId":    "m1",
+				"displayName": "n",
+				"email":       "a@example.com",
+			},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.UpdateMyMemberProfile(context.Background(), srv.URL, "tok", "k1", gen.UpdateMyMemberProfileJSONRequestBody{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+}

@@ -12,18 +12,23 @@ type Opener interface {
 
 type DefaultOpener struct{}
 
+var (
+	goos        = runtime.GOOS
+	execCommand = exec.Command
+)
+
 func (DefaultOpener) Open(url string) error {
 	if url == "" {
 		return fmt.Errorf("empty url")
 	}
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goos {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = execCommand("open", url)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		cmd = execCommand("rundll32", "url.dll,FileProtocolHandler", url)
 	default:
-		cmd = exec.Command("xdg-open", url)
+		cmd = execCommand("xdg-open", url)
 	}
 	return cmd.Start()
 }
