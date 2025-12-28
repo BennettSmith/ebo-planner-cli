@@ -112,6 +112,37 @@ func (a Adapter) UpdateTrip(ctx context.Context, baseURL string, bearerToken str
 	return resp, nil
 }
 
+func (a Adapter) SetTripDraftVisibility(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetTripDraftVisibilityJSONRequestBody) (*gen.SetTripDraftVisibilityClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.SetTripDraftVisibilityParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.SetTripDraftVisibilityWithResponse(ctx, tripID, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) PublishTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.PublishTripClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.PublishTripWithResponse(ctx, tripID)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) CancelTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey *string) (*gen.CancelTripClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {

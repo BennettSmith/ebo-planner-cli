@@ -57,6 +57,24 @@ func (f *fakeTripReadAPI) GetTripDetails(ctx context.Context, baseURL string, be
 	return &gen.GetTripDetailsClientResponse{JSON200: f.getTrip}, nil
 }
 
+func (f *fakeTripReadAPI) SetTripDraftVisibility(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetTripDraftVisibilityJSONRequestBody) (*gen.SetTripDraftVisibilityClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = idempotencyKey
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeTripReadAPI) PublishTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.PublishTripClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 // Unused for these tests, but required by the interface.
 func (f *fakeTripReadAPI) CreateTripDraft(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.CreateTripDraftJSONRequestBody) (*gen.CreateTripDraftClientResponse, error) {
 	_ = ctx

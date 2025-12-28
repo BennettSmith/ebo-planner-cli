@@ -135,6 +135,19 @@ func TestReadLineCtx_EOFWithoutNewline_ReturnsPartial(t *testing.T) {
 	}
 }
 
+func TestPromptOptionalString_EOFIsOK(t *testing.T) {
+	in := strings.NewReader("x")
+	out := &bytes.Buffer{}
+	p := New(in, out, nil)
+	s, err := p.PromptOptionalString(context.Background(), "Label")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if s != "x" {
+		t.Fatalf("got %q", s)
+	}
+}
+
 func TestPromptYesNo_DefaultYes(t *testing.T) {
 	in := strings.NewReader("\n")
 	out := &bytes.Buffer{}
