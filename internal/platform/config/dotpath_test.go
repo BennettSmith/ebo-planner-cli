@@ -89,3 +89,13 @@ func TestSetString_InvalidKey(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestErrNotFound_ErrorString(t *testing.T) {
+	err := ErrNotFound{Key: "a.b"}
+	if got := err.Error(); got == "" {
+		t.Fatalf("expected non-empty error")
+	}
+	if got := err.Error(); got != "key not found: a.b" {
+		t.Fatalf("got %q", got)
+	}
+}

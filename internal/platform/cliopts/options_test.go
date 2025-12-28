@@ -169,3 +169,14 @@ func TestResolveGlobalOptions_Validation(t *testing.T) {
 		}
 	})
 }
+
+func TestOSEnv_LookupEnv(t *testing.T) {
+	t.Setenv("EBO_TEST_LOOKUP", "yes")
+	v, ok := (OSEnv{}).LookupEnv("EBO_TEST_LOOKUP")
+	if !ok {
+		t.Fatalf("expected ok")
+	}
+	if v != "yes" {
+		t.Fatalf("expected yes, got %q", v)
+	}
+}

@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- `ebo profile` commands: manage profiles (list/show/create/set/use/delete) and switch current profile.
 - Added `ebo config` commands (path/get/set/unset/list) with secret redaction and `--include-secrets` for JSON output.
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
 - Added an architecture dependency guard test to enforce hex-layer import rules in CI.
