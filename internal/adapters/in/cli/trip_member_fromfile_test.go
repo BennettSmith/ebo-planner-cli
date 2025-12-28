@@ -75,7 +75,9 @@ func (f *fakePlannerAPI) UpdateMyMemberProfile(ctx context.Context, baseURL stri
 	f.memberCalls++
 	f.lastMemberIdem = idempotencyKey
 	f.lastMemberReq = req
-	return &gen.UpdateMyMemberProfileClientResponse{JSON200: &gen.UpdateMyMemberProfileResponse{}}, nil
+	return &gen.UpdateMyMemberProfileClientResponse{JSON200: &gen.UpdateMyMemberProfileResponse{
+		Member: gen.MemberProfile{MemberId: "m1", DisplayName: "n", Email: "a@example.com"},
+	}}, nil
 }
 
 func writeTempFile(t *testing.T, name string, content string) string {
