@@ -178,3 +178,40 @@ func TestPollToken_ErrorJSONUnknownIsError(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestPollToken_DefaultSleeperDoesNotPanicOnPending(t *testing.T) {
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		if n.Add(1) == 1 {
+			w.WriteHeader(400)
+			_, _ = w.Write([]byte(`{"error":"authorization_pending"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"access_token":"a.b.c","token_type":"Bearer"}`))
+	}))
+	defer srv.Close()
+
+	c := Client{HTTP: srv.Client(), Sleeper: nil}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, err := c.PollToken(ctx, srv.URL, "cid", "dc", 1*time.Millisecond)
+	if err != nil {
+		// could time out on slow machines; but should never panic.
+		return
+	}
+}
+
+func TestDiscover_EmptyIssuerIsError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+	if _, err := Discover(context.Background(), srv.Client(), ""); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
+func TestDiscover_NilHTTPIsError(t *testing.T) {
+	if _, err := Discover(context.Background(), nil, "http://x"); err == nil {
+		t.Fatalf("expected error")
+	}
+}

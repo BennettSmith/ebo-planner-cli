@@ -37,5 +37,6 @@ Notes:
 ### Removed
 
 ### Fixed
+- Fixed a panic in `ebo auth login` polling when the IdP returns `authorization_pending` during device flow.
 
 ### Security
