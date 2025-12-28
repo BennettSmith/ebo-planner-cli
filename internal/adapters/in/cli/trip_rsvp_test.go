@@ -283,7 +283,7 @@ func TestTripRSVPGet_TableOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "Response:") {
+	if want := "TRIP_ID\tRESPONSE\nt1\tYES\n"; stdout.String() != want {
 		t.Fatalf("stdout: %q", stdout.String())
 	}
 }
@@ -299,7 +299,7 @@ func TestTripRSVPSummary_TableOutput(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(stdout.String(), "AttendingRigs:") {
+	if want := "TRIP_ID\tATTENDING_RIGS\tATTENDING_MEMBERS\tNOT_ATTENDING_MEMBERS\nt1\t1\t0\t0\n"; stdout.String() != want {
 		t.Fatalf("stdout: %q", stdout.String())
 	}
 }
