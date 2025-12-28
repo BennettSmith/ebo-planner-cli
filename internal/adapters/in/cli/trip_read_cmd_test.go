@@ -95,6 +95,21 @@ func (f *fakeTripReadAPI) RemoveTripOrganizer(ctx context.Context, baseURL strin
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 
+func (f *fakeTripReadAPI) SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = params
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeTripReadAPI) GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func (f *fakeTripReadAPI) SetMyRSVP(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetMyRSVPJSONRequestBody) (*gen.SetMyRSVPClientResponse, error) {
 	_ = ctx
 	_ = baseURL

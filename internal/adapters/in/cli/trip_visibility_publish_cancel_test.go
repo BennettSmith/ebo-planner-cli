@@ -44,6 +44,14 @@ func (f *fakeTripMutationsAPI) UpdateTrip(ctx context.Context, baseURL string, b
 func (f *fakeTripMutationsAPI) ListMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.ListMembersParams) (*gen.ListMembersClientResponse, error) {
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
+
+func (f *fakeTripMutationsAPI) SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeTripMutationsAPI) GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
 func (f *fakeTripMutationsAPI) UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error) {
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
