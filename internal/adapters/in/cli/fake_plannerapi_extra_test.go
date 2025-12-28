@@ -108,3 +108,11 @@ func (f *fakePlannerAPI) GetMyMemberProfile(ctx context.Context, baseURL string,
 	_ = bearerToken
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
 }
+
+func (f *fakePlannerAPI) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}

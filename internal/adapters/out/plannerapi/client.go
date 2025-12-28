@@ -282,6 +282,21 @@ func (a Adapter) GetMyMemberProfile(ctx context.Context, baseURL string, bearerT
 	return resp, nil
 }
 
+func (a Adapter) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.CreateMyMemberWithResponse(ctx, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {

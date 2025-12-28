@@ -30,6 +30,7 @@ Notes:
 - Added trip organizer commands: `ebo trip organizer add` and `ebo trip organizer remove` (with `--force`).
 - Added trip RSVP commands: `ebo trip rsvp set|get|summary` (with `--yes|--no|--unset` for `set`).
 - Added member read commands: `ebo member list|search|me`.
+- Added `ebo member create` for provisioning a member profile (no `--idempotency-key`; natural retry via API).
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
 - Added an architecture dependency guard test to enforce hex-layer import rules in CI.
 - Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).

@@ -107,6 +107,10 @@ func (f *fakeMemberReadAPI) GetMyMemberProfile(ctx context.Context, baseURL stri
 	}{Member: gen.MemberProfile{MemberId: "m1", DisplayName: "Me", Email: "me@example.com"}}}, nil
 }
 
+func (f *fakeMemberReadAPI) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func (f *fakeMemberReadAPI) UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error) {
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }

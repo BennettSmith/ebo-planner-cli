@@ -110,6 +110,102 @@ func TestAdapter_GetMyMemberProfile_Maps404ToNotFound(t *testing.T) {
 	}
 }
 
+func TestAdapter_CreateMyMember_HitsEndpoint(t *testing.T) {
+	seen := ""
+	seenBody := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		seenBody = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"member":{"memberId":"m1","displayName":"D","email":"d@example.com","groupAliasEmail":null,"vehicleProfile":null}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.CreateMyMember(context.Background(), srv.URL, "tok", gen.CreateMyMemberJSONRequestBody{DisplayName: "D", Email: "d@example.com"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "POST /members" {
+		t.Fatalf("got %q", seen)
+	}
+	if !strings.Contains(seenBody, `"displayName":"D"`) {
+		t.Fatalf("body: %q", seenBody)
+	}
+}
+
+func TestAdapter_CreateMyMember_Maps409ToConflict(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(409)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "MEMBER_ALREADY_EXISTS", "message": "exists"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.CreateMyMember(context.Background(), srv.URL, "tok", gen.CreateMyMemberJSONRequestBody{DisplayName: "D", Email: "d@example.com"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Conflict {
+		t.Fatalf("expected conflict exit 5, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_CreateMyMember_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.CreateMyMember(context.Background(), srv.URL, "tok", gen.CreateMyMemberJSONRequestBody{DisplayName: "D", Email: "d@example.com"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_CreateMyMember_Maps422ToValidation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(422)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "VALIDATION_FAILED", "message": "bad input"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.CreateMyMember(context.Background(), srv.URL, "tok", gen.CreateMyMemberJSONRequestBody{DisplayName: "D", Email: "d@example.com"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Validation {
+		t.Fatalf("expected validation exit 6, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_CreateMyMember_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.CreateMyMember(context.Background(), "://bad", "tok", gen.CreateMyMemberJSONRequestBody{DisplayName: "D", Email: "d@example.com"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_IdempotencyHeader_RequiredAndOptional(t *testing.T) {
 	var createKey, cancelKey string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -238,6 +334,17 @@ func TestAdapter_UpdateTrip_SendsIdempotencyHeader(t *testing.T) {
 	}
 }
 
+func TestAdapter_UpdateTrip_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.UpdateTrip(context.Background(), "://bad", "tok", gen.TripId("t1"), "k1", gen.UpdateTripJSONRequestBody{})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_UpdateMyMemberProfile_SendsIdempotencyHeader(t *testing.T) {
 	seenKey := ""
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -268,6 +375,17 @@ func TestAdapter_UpdateMyMemberProfile_SendsIdempotencyHeader(t *testing.T) {
 	}
 	if seenKey != "k1" {
 		t.Fatalf("idempotency: got %q", seenKey)
+	}
+}
+
+func TestAdapter_UpdateMyMemberProfile_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.UpdateMyMemberProfile(context.Background(), "://bad", "tok", "k1", gen.UpdateMyMemberProfileJSONRequestBody{})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
 	}
 }
 
