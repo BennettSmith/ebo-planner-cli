@@ -32,8 +32,182 @@ func addTripCommands(root *cobra.Command, deps RootDeps) {
 	tripCmd.AddCommand(newTripPublishCmd(deps))
 	tripCmd.AddCommand(newTripCancelCmd(deps))
 	tripCmd.AddCommand(newTripOrganizerCmd(deps))
+	tripCmd.AddCommand(newTripRSVPCmd(deps))
 
 	root.AddCommand(tripCmd)
+}
+
+func newTripRSVPCmd(deps RootDeps) *cobra.Command {
+	rsvpCmd := &cobra.Command{
+		Use:   "rsvp",
+		Short: "Trip RSVP",
+	}
+	rsvpCmd.AddCommand(newTripRSVPSetCmd(deps))
+	rsvpCmd.AddCommand(newTripRSVPGetCmd(deps))
+	rsvpCmd.AddCommand(newTripRSVPSummaryCmd(deps))
+	return rsvpCmd
+}
+
+func newTripRSVPSetCmd(deps RootDeps) *cobra.Command {
+	var (
+		yes            bool
+		no             bool
+		unset          bool
+		idempotencyKey string
+	)
+	cmd := &cobra.Command{
+		Use:   "set <tripId> --yes|--no|--unset",
+		Short: "Set my RSVP for a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			mode := 0
+			if yes {
+				mode++
+			}
+			if no {
+				mode++
+			}
+			if unset {
+				mode++
+			}
+			if mode != 1 {
+				return exitcode.New(exitcode.KindUsage, "choose exactly one of --yes, --no, or --unset", nil)
+			}
+			if strings.TrimSpace(idempotencyKey) == "" {
+				idempotencyKey = idempotency.NewKey()
+			}
+
+			resp := gen.YES
+			if no {
+				resp = gen.NO
+			}
+			if unset {
+				resp = gen.UNSET
+			}
+
+			tripID := gen.TripId(args[0])
+			out, err := deps.PlannerAPI.SetMyRSVP(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID, idempotencyKey, gen.SetMyRSVPRequest{Response: resp})
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: out.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile, IdempotencyKey: idempotencyKey},
+				})
+			}
+
+			_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "RSVP yes")
+	cmd.Flags().BoolVar(&no, "no", false, "RSVP no")
+	cmd.Flags().BoolVar(&unset, "unset", false, "Unset RSVP")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	return cmd
+}
+
+func newTripRSVPGetCmd(deps RootDeps) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "get <tripId>",
+		Short: "Get my RSVP for a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.GetMyRSVPForTrip(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			if resp.JSON200 == nil {
+				_, _ = io.WriteString(deps.Stdout, "OK\n")
+				return nil
+			}
+			_, _ = fmt.Fprintf(deps.Stdout, "Response: %s\n", resp.JSON200.MyRsvp.Response)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newTripRSVPSummaryCmd(deps RootDeps) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "summary <tripId>",
+		Short: "Get RSVP summary for a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.GetTripRSVPSummary(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			if resp.JSON200 == nil {
+				_, _ = io.WriteString(deps.Stdout, "OK\n")
+				return nil
+			}
+			s := resp.JSON200.RsvpSummary
+			_, _ = fmt.Fprintf(deps.Stdout, "AttendingRigs: %d\nAttendingMembers: %d\nNotAttendingMembers: %d\n", s.AttendingRigs, len(s.AttendingMembers), len(s.NotAttendingMembers))
+			return nil
+		},
+	}
+	return cmd
 }
 
 func newTripOrganizerCmd(deps RootDeps) *cobra.Command {
