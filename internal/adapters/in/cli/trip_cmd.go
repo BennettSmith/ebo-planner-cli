@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/editmode"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/idempotency"
@@ -107,6 +109,7 @@ func newTripCreateCmd(deps RootDeps) *cobra.Command {
 func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 	var (
 		fromFile       string
+		edit           bool
 		idempotencyKey string
 	)
 
@@ -130,13 +133,37 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 				return err
 			}
 
-			if strings.TrimSpace(fromFile) == "" {
-				return exitcode.New(exitcode.KindUsage, "missing input (use --from-file)", nil)
+			if strings.TrimSpace(fromFile) != "" && edit {
+				return exitcode.New(exitcode.KindUsage, "choose exactly one of --from-file or --edit", nil)
+			}
+			if strings.TrimSpace(fromFile) == "" && !edit {
+				return exitcode.New(exitcode.KindUsage, "missing input (use --from-file or --edit)", nil)
 			}
 
 			var req gen.UpdateTripRequest
-			if err := requestfile.LoadStrict(fromFile, &req); err != nil {
-				return exitcode.New(exitcode.KindUsage, "parse request file", err)
+			switch {
+			case edit:
+				edited, err := editmode.EditTemp(updateTripTemplateYAML)
+				if err != nil {
+					return exitcode.New(exitcode.KindServer, "open editor", err)
+				}
+				tmp, err := os.CreateTemp("", "ebo-editbuf-*.req")
+				if err != nil {
+					return exitcode.New(exitcode.KindServer, "temp file", err)
+				}
+				tmpName := tmp.Name()
+				_ = tmp.Close()
+				defer func() { _ = os.Remove(tmpName) }()
+				if err := os.WriteFile(tmpName, edited, 0o600); err != nil {
+					return exitcode.New(exitcode.KindServer, "write edited buffer", err)
+				}
+				if err := requestfile.LoadStrict(tmpName, &req); err != nil {
+					return exitcode.New(exitcode.KindUsage, "parse edited buffer", err)
+				}
+			default:
+				if err := requestfile.LoadStrict(fromFile, &req); err != nil {
+					return exitcode.New(exitcode.KindUsage, "parse request file", err)
+				}
 			}
 
 			if strings.TrimSpace(idempotencyKey) == "" {
@@ -163,7 +190,36 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Read request body from file (JSON or YAML)")
+	cmd.Flags().BoolVar(&edit, "edit", false, "Edit request body in $EBO_EDITOR/$EDITOR (YAML template)")
 	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
 
 	return cmd
 }
+
+const updateTripTemplateYAML = `# UpdateTripRequest (patch)
+#
+# - Omitted fields are unchanged.
+# - Set fields to update.
+#
+# Example:
+# description: |-
+#   line1
+#   line2
+#
+# name:
+# description:
+# startDate:
+# endDate:
+# capacityRigs:
+# difficultyText:
+# commsRequirementsText:
+# recommendedRequirementsText:
+# artifactIds:
+# meetingLocation:
+#   label:
+#   address:
+#   latitudeLongitude:
+#     latitude:
+#     longitude:
+{}
+`

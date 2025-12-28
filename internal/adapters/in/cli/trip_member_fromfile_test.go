@@ -88,6 +88,20 @@ func writeTempFile(t *testing.T, name string, content string) string {
 	return p
 }
 
+func writeEditorScript(t *testing.T, editedContent string) string {
+	t.Helper()
+	dir := t.TempDir()
+	p := filepath.Join(dir, "fake-editor.sh")
+	script := "#!/bin/sh\n" +
+		"cat > \"$1\" <<'EOF'\n" +
+		editedContent +
+		"\nEOF\n"
+	if err := os.WriteFile(p, []byte(script), 0o700); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+	return p
+}
+
 func baseDoc(t *testing.T) config.Document {
 	t.Helper()
 	doc := config.NewEmptyDocument()
@@ -352,6 +366,168 @@ func TestTripCreate_MissingToken_IsAuth(t *testing.T) {
 	}
 	if api.createCalls != 0 {
 		t.Fatalf("expected no API calls, got %d", api.createCalls)
+	}
+}
+
+func TestTripUpdate_Edit_InvalidBuffer_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "{")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--edit"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestTripUpdate_Edit_ParsesEditedContent(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "description: hi\n")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--edit", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.updateCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.updateCalls)
+	}
+	if api.lastUpdateReq.Description == nil || *api.lastUpdateReq.Description != "hi" {
+		if api.lastUpdateReq.Description == nil {
+			t.Fatalf("expected description set")
+		}
+		t.Fatalf("description: %#v", *api.lastUpdateReq.Description)
+	}
+}
+
+func TestTripUpdate_Edit_AndFromFile_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "description: hi\n")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	p := writeTempFile(t, "patch.yaml", "description: x\n")
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"trip", "update", "t1", "--edit", "--from-file", p})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.updateCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.updateCalls)
+	}
+}
+
+func TestMemberUpdate_Edit_InvalidBuffer_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "{")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--edit"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
+	}
+}
+
+func TestMemberUpdate_Edit_ParsesEditedContent(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "displayName: New Name\n")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--edit", "--idempotency-key", "k1"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if api.memberCalls != 1 {
+		t.Fatalf("expected 1 API call, got %d", api.memberCalls)
+	}
+	if api.lastMemberReq.DisplayName == nil || *api.lastMemberReq.DisplayName != "New Name" {
+		if api.lastMemberReq.DisplayName == nil {
+			t.Fatalf("expected displayName set")
+		}
+		t.Fatalf("displayName: %#v", *api.lastMemberReq.DisplayName)
+	}
+}
+
+func TestMemberUpdate_Edit_AndFromFile_IsUsage_NoAPICall(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	store := &memStore{path: "/x", doc: baseDoc(t)}
+	api := &fakePlannerAPI{}
+
+	editor := writeEditorScript(t, "displayName: New Name\n")
+	if err := os.Setenv("EBO_EDITOR", editor); err != nil {
+		t.Fatalf("setenv: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("EBO_EDITOR") })
+
+	p := writeTempFile(t, "member.yaml", "displayName: x\n")
+	cmd := NewRootCmd(RootDeps{ConfigStore: store, PlannerAPI: api, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"member", "update", "--edit", "--from-file", p})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected exit 2, got %d (%v)", exitcode.Code(err), err)
+	}
+	if api.memberCalls != 0 {
+		t.Fatalf("expected no API calls, got %d", api.memberCalls)
 	}
 }
 
