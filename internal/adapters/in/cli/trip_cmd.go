@@ -31,8 +31,130 @@ func addTripCommands(root *cobra.Command, deps RootDeps) {
 	tripCmd.AddCommand(newTripVisibilityCmd(deps))
 	tripCmd.AddCommand(newTripPublishCmd(deps))
 	tripCmd.AddCommand(newTripCancelCmd(deps))
+	tripCmd.AddCommand(newTripOrganizerCmd(deps))
 
 	root.AddCommand(tripCmd)
+}
+
+func newTripOrganizerCmd(deps RootDeps) *cobra.Command {
+	orgCmd := &cobra.Command{
+		Use:   "organizer",
+		Short: "Trip organizer management",
+	}
+	orgCmd.AddCommand(newTripOrganizerAddCmd(deps))
+	orgCmd.AddCommand(newTripOrganizerRemoveCmd(deps))
+	return orgCmd
+}
+
+func newTripOrganizerAddCmd(deps RootDeps) *cobra.Command {
+	var (
+		memberID       string
+		idempotencyKey string
+	)
+	cmd := &cobra.Command{
+		Use:   "add <tripId> --member <memberId>",
+		Short: "Add an organizer to a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			if strings.TrimSpace(memberID) == "" {
+				return exitcode.New(exitcode.KindUsage, "missing --member", nil)
+			}
+			if strings.TrimSpace(idempotencyKey) == "" {
+				idempotencyKey = idempotency.NewKey()
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.AddTripOrganizer(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID, idempotencyKey, gen.AddOrganizerRequest{MemberId: memberID})
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile, IdempotencyKey: idempotencyKey},
+				})
+			}
+
+			_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&memberID, "member", "", "Member ID to add as organizer")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	return cmd
+}
+
+func newTripOrganizerRemoveCmd(deps RootDeps) *cobra.Command {
+	var (
+		memberID       string
+		force          bool
+		idempotencyKey string
+	)
+	cmd := &cobra.Command{
+		Use:   "remove <tripId> --member <memberId>",
+		Short: "Remove an organizer from a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			if strings.TrimSpace(memberID) == "" {
+				return exitcode.New(exitcode.KindUsage, "missing --member", nil)
+			}
+			if !force {
+				return exitcode.New(exitcode.KindUsage, "refusing to remove organizer without --force", nil)
+			}
+			if strings.TrimSpace(idempotencyKey) == "" {
+				idempotencyKey = idempotency.NewKey()
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.RemoveTripOrganizer(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID, gen.MemberId(memberID), idempotencyKey)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile, IdempotencyKey: idempotencyKey},
+				})
+			}
+
+			_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&memberID, "member", "", "Member ID to remove as organizer")
+	cmd.Flags().BoolVar(&force, "force", false, "Required: confirm organizer removal")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	return cmd
 }
 
 func newTripListCmd(deps RootDeps) *cobra.Command {

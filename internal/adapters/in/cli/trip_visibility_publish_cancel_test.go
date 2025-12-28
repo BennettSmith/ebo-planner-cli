@@ -82,6 +82,26 @@ func (f *fakeTripMutationsAPI) CancelTrip(ctx context.Context, baseURL string, b
 	return &gen.CancelTripClientResponse{JSON200: &gen.TripResponse{}}, nil
 }
 
+func (f *fakeTripMutationsAPI) AddTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.AddTripOrganizerJSONRequestBody) (*gen.AddTripOrganizerClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = idempotencyKey
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeTripMutationsAPI) RemoveTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, memberID gen.MemberId, idempotencyKey string) (*gen.RemoveTripOrganizerClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = memberID
+	_ = idempotencyKey
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func TestTripPublish_PrintAnnouncement_StdoutOnly(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}

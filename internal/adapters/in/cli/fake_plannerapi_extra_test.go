@@ -47,3 +47,23 @@ func (f *fakePlannerAPI) PublishTrip(ctx context.Context, baseURL string, bearer
 	_ = tripID
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
 }
+
+func (f *fakePlannerAPI) AddTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.AddTripOrganizerJSONRequestBody) (*gen.AddTripOrganizerClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = idempotencyKey
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) RemoveTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, memberID gen.MemberId, idempotencyKey string) (*gen.RemoveTripOrganizerClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = memberID
+	_ = idempotencyKey
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}

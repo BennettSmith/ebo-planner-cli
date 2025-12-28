@@ -27,6 +27,7 @@ Notes:
 - Added trip read commands: `ebo trip list`, `ebo trip drafts`, and `ebo trip get <tripId>`.
 - Added `ebo trip update` patch flags for common fields (including meeting location and artifacts), plus validation/mutual-exclusion rules for clear/replace semantics.
 - Added trip lifecycle commands: `ebo trip visibility`, `ebo trip publish` (with `--print-announcement`), and `ebo trip cancel` (with `--force`).
+- Added trip organizer commands: `ebo trip organizer add` and `ebo trip organizer remove` (with `--force`).
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
 - Added an architecture dependency guard test to enforce hex-layer import rules in CI.
 - Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).
