@@ -21,6 +21,7 @@ func addAuthCommands(root *cobra.Command, deps RootDeps) {
 	}
 
 	authCmd.AddCommand(newAuthStatusCmd(deps, svc))
+	authCmd.AddCommand(newAuthLoginCmd(deps))
 	authCmd.AddCommand(newAuthLogoutCmd(deps, svc))
 	authCmd.AddCommand(newAuthTokenCmd(deps, svc))
 

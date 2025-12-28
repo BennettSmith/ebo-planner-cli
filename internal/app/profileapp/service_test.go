@@ -168,3 +168,54 @@ func TestDelete_CurrentWithoutDefaultConflict(t *testing.T) {
 		t.Fatalf("expected conflict, got %d", exitcode.Code(err))
 	}
 }
+
+type errStore struct {
+	loadErr error
+	saveErr error
+	doc     config.Document
+}
+
+func (e errStore) Path(ctx context.Context) (string, error) { return "/x", nil }
+func (e errStore) Load(ctx context.Context) (config.Document, error) {
+	return config.Document{}, e.loadErr
+}
+func (e errStore) Save(ctx context.Context, doc config.Document) error { return e.saveErr }
+
+type saveErrStore struct {
+	doc     config.Document
+	saveErr error
+}
+
+func (s saveErrStore) Path(ctx context.Context) (string, error)             { return "/x", nil }
+func (s saveErrStore) Load(ctx context.Context) (config.Document, error)    { return s.doc, nil }
+func (s *saveErrStore) Save(ctx context.Context, doc config.Document) error { return s.saveErr }
+
+func TestSetAPIURL_LoadErrorIsServer(t *testing.T) {
+	s := Service{Store: errStore{loadErr: context.Canceled}}
+	if err := s.SetAPIURL(context.Background(), "dev", "http://x"); err == nil {
+		t.Fatalf("expected error")
+	} else if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestSetAPIURL_SaveErrorIsServer(t *testing.T) {
+	st := &saveErrStore{doc: config.NewEmptyDocument(), saveErr: context.Canceled}
+	s := Service{Store: st}
+	if err := s.SetAPIURL(context.Background(), "dev", "http://x"); err == nil {
+		t.Fatalf("expected error")
+	} else if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestList_LoadErrorIsServer(t *testing.T) {
+	s := Service{Store: errStore{loadErr: context.Canceled}}
+	_, _, err := s.List(context.Background())
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}

@@ -17,6 +17,7 @@ Notes:
 ## [Unreleased]
 
 ### Added
+- Added interactive `ebo auth login` (OIDC device flow) to obtain and store a bearer token.
 - `ebo auth` token commands: `auth status`, `auth logout`, `auth token set`, and `auth token print`.
 - `ebo profile` commands: manage profiles (list/show/create/set/use/delete) and switch current profile.
 - Added `ebo config` commands (path/get/set/unset/list) with secret redaction and `--include-secrets` for JSON output.
