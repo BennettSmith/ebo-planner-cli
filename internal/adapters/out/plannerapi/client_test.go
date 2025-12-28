@@ -98,3 +98,35 @@ func TestAdapter_ErrorDecoding_MapsExitKind(t *testing.T) {
 		t.Fatalf("expected auth exit code, got %d", exitcode.Code(err))
 	}
 }
+
+func TestAdapter_CreateTripDraft_RequestErrorIsServer(t *testing.T) {
+	// invalid base URL forces client.NewClientWithResponses to error
+	a := Adapter{}
+	_, err := a.CreateTripDraft(context.Background(), "://bad", "tok", "k1", gen.CreateTripDraftJSONRequestBody{Name: "n"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_CancelTrip_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.CancelTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"), nil)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/browseropen"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
@@ -19,6 +20,10 @@ type RootDeps struct {
 
 	Stdout io.Writer
 	Stderr io.Writer
+
+	// BrowserOpener is used by interactive commands to open URLs.
+	// Tests should supply a no-op opener to avoid launching a browser.
+	BrowserOpener browseropen.Opener
 
 	// OnResolved is a test hook invoked after flags/env are resolved.
 	OnResolved func(cliopts.Resolved)
