@@ -210,3 +210,33 @@ func TestConfigGet_InvalidKeyIsUsage(t *testing.T) {
 		t.Fatalf("expected usage, got %d", exitcode.Code(err))
 	}
 }
+
+func TestConfigPath_Table(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	store := &memStore{path: "/tmp/config.yaml", doc: config.NewEmptyDocument()}
+	cmd := NewRootCmd(RootDeps{Env: nil, ConfigStore: store, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"config", "path"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte("/tmp/config.yaml")) {
+		t.Fatalf("expected path, got %q", stdout.String())
+	}
+}
+
+func TestConfigPath_NilStoreIsUnexpectedExitCode(t *testing.T) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	cmd := NewRootCmd(RootDeps{Env: nil, ConfigStore: nil, Stdout: stdout, Stderr: stderr})
+	cmd.SetArgs([]string{"config", "path"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Unexpected {
+		t.Fatalf("expected unexpected exit 1, got %d", exitcode.Code(err))
+	}
+}
