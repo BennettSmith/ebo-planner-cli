@@ -23,10 +23,162 @@ func addTripCommands(root *cobra.Command, deps RootDeps) {
 		Short: "Trip operations",
 	}
 
+	tripCmd.AddCommand(newTripListCmd(deps))
+	tripCmd.AddCommand(newTripDraftsCmd(deps))
+	tripCmd.AddCommand(newTripGetCmd(deps))
 	tripCmd.AddCommand(newTripCreateCmd(deps))
 	tripCmd.AddCommand(newTripUpdateCmd(deps))
 
 	root.AddCommand(tripCmd)
+}
+
+func newTripListCmd(deps RootDeps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List visible trips",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_ = args
+			ctx := cmd.Context()
+
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			resp, err := deps.PlannerAPI.ListVisibleTripsForMember(ctx, apiCtx.APIURL, apiCtx.BearerToken)
+			if err != nil {
+				return err
+			}
+
+			trips := []gen.TripSummary{}
+			if resp.JSON200 != nil {
+				trips = resp.JSON200.Trips
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			_, _ = io.WriteString(deps.Stdout, "TRIP_ID\tSTATUS\tNAME\n")
+			for _, t := range trips {
+				name := ""
+				if t.Name != nil {
+					name = *t.Name
+				}
+				_, _ = fmt.Fprintf(deps.Stdout, "%s\t%s\t%s\n", t.TripId, t.Status, name)
+			}
+			return nil
+		},
+	}
+}
+
+func newTripDraftsCmd(deps RootDeps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "drafts",
+		Short: "List my draft trips",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_ = args
+			ctx := cmd.Context()
+
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			resp, err := deps.PlannerAPI.ListMyDraftTrips(ctx, apiCtx.APIURL, apiCtx.BearerToken)
+			if err != nil {
+				return err
+			}
+
+			trips := []gen.TripSummary{}
+			if resp.JSON200 != nil {
+				trips = resp.JSON200.Trips
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			_, _ = io.WriteString(deps.Stdout, "TRIP_ID\tSTATUS\tNAME\n")
+			for _, t := range trips {
+				name := ""
+				if t.Name != nil {
+					name = *t.Name
+				}
+				_, _ = fmt.Fprintf(deps.Stdout, "%s\t%s\t%s\n", t.TripId, t.Status, name)
+			}
+			return nil
+		},
+	}
+}
+
+func newTripGetCmd(deps RootDeps) *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <tripId>",
+		Short: "Get trip details",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.GetTripDetails(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			if resp.JSON200 == nil {
+				_, _ = io.WriteString(deps.Stdout, "OK\n")
+				return nil
+			}
+
+			t := resp.JSON200.Trip
+			name := ""
+			if t.Name != nil {
+				name = *t.Name
+			}
+			_, _ = fmt.Fprintf(deps.Stdout, "TripId: %s\nStatus: %s\nName: %s\n", t.TripId, t.Status, name)
+			return nil
+		},
+	}
 }
 
 func newTripCreateCmd(deps RootDeps) *cobra.Command {
