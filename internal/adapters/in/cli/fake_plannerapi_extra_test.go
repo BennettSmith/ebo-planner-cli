@@ -1,0 +1,31 @@
+package cli
+
+import (
+	"context"
+
+	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
+	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+)
+
+// Satisfy newly-added plannerapi.Client methods for existing tests that use fakePlannerAPI.
+func (f *fakePlannerAPI) ListVisibleTripsForMember(ctx context.Context, baseURL string, bearerToken string) (*gen.ListVisibleTripsForMemberClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) ListMyDraftTrips(ctx context.Context, baseURL string, bearerToken string) (*gen.ListMyDraftTripsClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) GetTripDetails(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.GetTripDetailsClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}

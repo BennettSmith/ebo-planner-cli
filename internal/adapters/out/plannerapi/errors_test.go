@@ -8,6 +8,24 @@ import (
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
 )
 
+func TestAPIError_Error_NilReceiver(t *testing.T) {
+	var e *APIError
+	if e.Error() != "" {
+		t.Fatalf("expected empty")
+	}
+}
+
+func TestAPIError_ErrorFormatting(t *testing.T) {
+	e := &APIError{ErrorCode: "X", Message: "m"}
+	if e.Error() != "X: m" {
+		t.Fatalf("got %q", e.Error())
+	}
+	e2 := &APIError{Message: "m"}
+	if e2.Error() != "m" {
+		t.Fatalf("got %q", e2.Error())
+	}
+}
+
 func TestExitKindForStatus(t *testing.T) {
 	cases := []struct {
 		status int
@@ -27,29 +45,21 @@ func TestExitKindForStatus(t *testing.T) {
 	}
 }
 
-func TestAPIError_ErrorFormatting(t *testing.T) {
-	e := &APIError{ErrorCode: "X", Message: "m"}
-	if e.Error() != "X: m" {
-		t.Fatalf("got %q", e.Error())
+func TestAPIErrorFromAny_NoVariantUsesStatusOnly(t *testing.T) {
+	err := apiErrorFromAny(422, nil)
+	if err == nil {
+		t.Fatalf("expected error")
 	}
-	e2 := &APIError{Message: "m"}
-	if e2.Error() != "m" {
-		t.Fatalf("got %q", e2.Error())
-	}
-}
-
-func TestApiErrorFromAny_Fallback(t *testing.T) {
-	err := apiErrorFromAny(404, nil)
-	if exitcode.Code(err) != exitcode.NotFound {
-		t.Fatalf("got %d", exitcode.Code(err))
+	if exitcode.Code(err) != exitcode.Validation {
+		t.Fatalf("expected validation exit 6, got %d", exitcode.Code(err))
 	}
 }
 
-func TestApiErrorFromErrorResponse_WrapsAPIError(t *testing.T) {
+func TestAPIErrorFromErrorResponse_WrapsAPIError(t *testing.T) {
 	rid := "req-1"
 	er := &gen.ErrorResponse{}
-	er.Error.Code = "C"
-	er.Error.Message = "msg"
+	er.Error.Code = "UNAUTHORIZED"
+	er.Error.Message = "nope"
 	er.Error.RequestId = &rid
 
 	err := apiErrorFromErrorResponse(401, er)
@@ -58,8 +68,8 @@ func TestApiErrorFromErrorResponse_WrapsAPIError(t *testing.T) {
 		t.Fatalf("expected exitcode.Error")
 	}
 	var ae *APIError
-	if !errors.As(err, &ae) {
-		t.Fatalf("expected APIError unwrap")
+	if !errors.As(ee.Err, &ae) {
+		t.Fatalf("expected APIError cause, got %T", ee.Err)
 	}
 	if ae.RequestID != "req-1" {
 		t.Fatalf("requestId: got %q", ae.RequestID)

@@ -56,6 +56,13 @@ func TestResolveSpecDir_EnvRelative(t *testing.T) {
 	}
 }
 
+func TestVerifyRefExists_NilRunner_UsesExecRunnerAndErrors(t *testing.T) {
+	// This hits the nil-runner fallback branch; it should error because tempdir is not a git repo.
+	if err := VerifyRefExists(nil, t.TempDir(), "nope"); err == nil {
+		t.Fatalf("expected error")
+	}
+}
+
 func TestVerifyRefExists_OK(t *testing.T) {
 	r := fakeRunner{out: map[string][]byte{
 		"git -C /spec rev-parse --verify v1": []byte("v1\n"),
