@@ -268,6 +268,109 @@ func TestAdapter_GetTripDetails_Maps404ToNotFound(t *testing.T) {
 	}
 }
 
+func TestAdapter_SetTripDraftVisibility_SendsIdempotencyHeader(t *testing.T) {
+	seenKey := ""
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		seenKey = r.Header.Get("Idempotency-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"trip":{"tripId":"t1","status":"DRAFT","rsvpActionsEnabled":false,"organizers":[],"artifacts":[]}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetTripDraftVisibility(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetDraftVisibilityRequest{DraftVisibility: "PUBLIC"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "PUT /trips/t1/draft-visibility" {
+		t.Fatalf("got %q", seen)
+	}
+	if seenKey != "k1" {
+		t.Fatalf("idempotency: got %q", seenKey)
+	}
+}
+
+func TestAdapter_PublishTrip_HitsPublishEndpoint(t *testing.T) {
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"announcementCopy":"A","trip":{"tripId":"t1","status":"PUBLISHED","rsvpActionsEnabled":false,"organizers":[],"artifacts":[]}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.PublishTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "POST /trips/t1/publish" {
+		t.Fatalf("got %q", seen)
+	}
+}
+
+func TestAdapter_PublishTrip_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.PublishTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_PublishTrip_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.PublishTrip(context.Background(), srv.URL, "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_SetTripDraftVisibility_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "NOT_FOUND", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetTripDraftVisibility(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetDraftVisibilityRequest{DraftVisibility: "PUBLIC"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_ListVisibleTripsForMember_Maps401ToAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -296,5 +399,47 @@ func TestAdapter_ListMyDraftTrips_RequestErrorIsServer(t *testing.T) {
 	}
 	if exitcode.Code(err) != exitcode.Server {
 		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_PublishTrip_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.PublishTrip(context.Background(), "://bad", "tok", gen.TripId("t1"))
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_SetTripDraftVisibility_RequestErrorIsServer(t *testing.T) {
+	a := Adapter{}
+	_, err := a.SetTripDraftVisibility(context.Background(), "://bad", "tok", gen.TripId("t1"), "k1", gen.SetDraftVisibilityRequest{DraftVisibility: "PUBLIC"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Server {
+		t.Fatalf("expected server, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_SetTripDraftVisibility_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SetTripDraftVisibility(context.Background(), srv.URL, "tok", gen.TripId("t1"), "k1", gen.SetDraftVisibilityRequest{DraftVisibility: "PUBLIC"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
 	}
 }

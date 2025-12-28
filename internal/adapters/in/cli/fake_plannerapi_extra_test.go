@@ -29,3 +29,21 @@ func (f *fakePlannerAPI) GetTripDetails(ctx context.Context, baseURL string, bea
 	_ = tripID
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
 }
+
+func (f *fakePlannerAPI) SetTripDraftVisibility(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetTripDraftVisibilityJSONRequestBody) (*gen.SetTripDraftVisibilityClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	_ = idempotencyKey
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) PublishTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId) (*gen.PublishTripClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = tripID
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}

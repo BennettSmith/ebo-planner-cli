@@ -28,6 +28,9 @@ func addTripCommands(root *cobra.Command, deps RootDeps) {
 	tripCmd.AddCommand(newTripGetCmd(deps))
 	tripCmd.AddCommand(newTripCreateCmd(deps))
 	tripCmd.AddCommand(newTripUpdateCmd(deps))
+	tripCmd.AddCommand(newTripVisibilityCmd(deps))
+	tripCmd.AddCommand(newTripPublishCmd(deps))
+	tripCmd.AddCommand(newTripCancelCmd(deps))
 
 	root.AddCommand(tripCmd)
 }
@@ -545,6 +548,176 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 	cmd.Flags().StringArrayVar(&artifactIDs, "artifact-id", nil, "Replace artifacts with this ordered list of artifact IDs (repeatable; deduped)")
 	cmd.Flags().BoolVar(&clearArtifacts, "clear-artifacts", false, "Clear artifacts list")
 
+	return cmd
+}
+
+func newTripVisibilityCmd(deps RootDeps) *cobra.Command {
+	var (
+		public         bool
+		private        bool
+		idempotencyKey string
+	)
+	cmd := &cobra.Command{
+		Use:   "visibility <tripId> --public|--private",
+		Short: "Set draft trip visibility",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			if public == private {
+				return exitcode.New(exitcode.KindUsage, "choose exactly one of --public or --private", nil)
+			}
+			if strings.TrimSpace(idempotencyKey) == "" {
+				idempotencyKey = idempotency.NewKey()
+			}
+
+			vis := gen.DraftVisibility("PRIVATE")
+			if public {
+				vis = gen.DraftVisibility("PUBLIC")
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.SetTripDraftVisibility(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID, idempotencyKey, gen.SetDraftVisibilityRequest{DraftVisibility: vis})
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile, IdempotencyKey: idempotencyKey},
+				})
+			}
+
+			_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&public, "public", false, "Set draft visibility to PUBLIC")
+	cmd.Flags().BoolVar(&private, "private", false, "Set draft visibility to PRIVATE")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	return cmd
+}
+
+func newTripPublishCmd(deps RootDeps) *cobra.Command {
+	var printAnnouncement bool
+	cmd := &cobra.Command{
+		Use:   "publish <tripId>",
+		Short: "Publish a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.PublishTrip(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID)
+			if err != nil {
+				return err
+			}
+
+			if printAnnouncement {
+				if resp.JSON200 != nil {
+					_, _ = io.WriteString(deps.Stdout, resp.JSON200.AnnouncementCopy)
+				}
+				return nil
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile},
+				})
+			}
+
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&printAnnouncement, "print-announcement", false, "Print announcement copy to stdout (plain text only)")
+	return cmd
+}
+
+func newTripCancelCmd(deps RootDeps) *cobra.Command {
+	var (
+		force          bool
+		idempotencyKey string
+	)
+	cmd := &cobra.Command{
+		Use:   "cancel <tripId>",
+		Short: "Cancel a trip",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			if !force {
+				return exitcode.New(exitcode.KindUsage, "refusing to cancel without --force", nil)
+			}
+
+			var idemPtr *string
+			if strings.TrimSpace(idempotencyKey) != "" {
+				idemPtr = &idempotencyKey
+			}
+
+			tripID := gen.TripId(args[0])
+			resp, err := deps.PlannerAPI.CancelTrip(ctx, apiCtx.APIURL, apiCtx.BearerToken, tripID, idemPtr)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				meta := envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile}
+				if idemPtr != nil {
+					meta.IdempotencyKey = idempotencyKey
+				}
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: meta,
+				})
+			}
+
+			if idemPtr != nil {
+				_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			}
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "Required: confirm trip cancellation")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Optional idempotency key (not auto-generated)")
 	return cmd
 }
 
