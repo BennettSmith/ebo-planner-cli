@@ -32,6 +32,84 @@ func TestAdapter_SendsAuthorizationHeader(t *testing.T) {
 	}
 }
 
+func TestAdapter_SearchMembers_HitsEndpointWithQuery(t *testing.T) {
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path + "?" + r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"members":[]}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SearchMembers(context.Background(), srv.URL, "tok", &gen.SearchMembersParams{Q: "bob"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "GET /members/search?q=bob" {
+		t.Fatalf("got %q", seen)
+	}
+}
+
+func TestAdapter_GetMyMemberProfile_HitsEndpoint(t *testing.T) {
+	seen := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"member":{"memberId":"m1","displayName":"D","email":"d@example.com","groupAliasEmail":null,"vehicleProfile":null}}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetMyMemberProfile(context.Background(), srv.URL, "tok")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "GET /members/me" {
+		t.Fatalf("got %q", seen)
+	}
+}
+
+func TestAdapter_SearchMembers_Maps401ToAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(401)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "UNAUTHORIZED", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.SearchMembers(context.Background(), srv.URL, "tok", &gen.SearchMembersParams{Q: "bob"})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Auth {
+		t.Fatalf("expected auth exit 3, got %d", exitcode.Code(err))
+	}
+}
+
+func TestAdapter_GetMyMemberProfile_Maps404ToNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(404)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "MEMBER_NOT_PROVISIONED", "message": "missing"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.GetMyMemberProfile(context.Background(), srv.URL, "tok")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.NotFound {
+		t.Fatalf("expected notfound exit 4, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_IdempotencyHeader_RequiredAndOptional(t *testing.T) {
 	var createKey, cancelKey string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

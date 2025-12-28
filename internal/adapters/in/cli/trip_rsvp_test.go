@@ -63,6 +63,14 @@ func (f *fakeRSVPAPI) UpdateMyMemberProfile(ctx context.Context, baseURL string,
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 
+func (f *fakeRSVPAPI) SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeRSVPAPI) GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func (f *fakeRSVPAPI) SetMyRSVP(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetMyRSVPJSONRequestBody) (*gen.SetMyRSVPClientResponse, error) {
 	_ = ctx
 	_ = baseURL

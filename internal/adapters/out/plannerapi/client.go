@@ -252,6 +252,36 @@ func (a Adapter) ListMembers(ctx context.Context, baseURL string, bearerToken st
 	return resp, nil
 }
 
+func (a Adapter) SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.SearchMembersWithResponse(ctx, params)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	resp, err := client.GetMyMemberProfileWithResponse(ctx)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {

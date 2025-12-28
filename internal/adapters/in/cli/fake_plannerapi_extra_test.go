@@ -93,3 +93,18 @@ func (f *fakePlannerAPI) GetTripRSVPSummary(ctx context.Context, baseURL string,
 	_ = tripID
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
 }
+
+func (f *fakePlannerAPI) SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = params
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
