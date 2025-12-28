@@ -51,6 +51,22 @@ func (a Adapter) CreateTripDraft(ctx context.Context, baseURL string, bearerToke
 	return resp, nil
 }
 
+func (a Adapter) UpdateTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.UpdateTripJSONRequestBody) (*gen.UpdateTripClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.UpdateTripParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.UpdateTripWithResponse(ctx, tripID, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
+	}
+	return resp, nil
+}
+
 func (a Adapter) CancelTrip(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey *string) (*gen.CancelTripClientResponse, error) {
 	client, err := a.newClient(baseURL, bearerToken)
 	if err != nil {
@@ -78,6 +94,22 @@ func (a Adapter) ListMembers(ctx context.Context, baseURL string, bearerToken st
 	}
 	if resp.StatusCode() >= 400 {
 		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.UpdateMyMemberProfileParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.UpdateMyMemberProfileWithResponse(ctx, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON422, resp.JSON500)
 	}
 	return resp, nil
 }

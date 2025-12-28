@@ -2,11 +2,13 @@ package main
 
 import (
 	"errors"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/in/cli"
 	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/configfile"
+	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/plannerapi"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
@@ -18,7 +20,13 @@ func main() {
 	peek := cliopts.PeekGlobalOptions(os.Args[1:], env, defaults)
 
 	store := configfile.Store{Env: configfile.OSEnv{}}
-	cmd := cli.NewRootCmd(cli.RootDeps{Env: env, ConfigStore: store, Stdout: os.Stdout, Stderr: os.Stderr})
+	api := plannerapi.Adapter{
+		HTTPClient: &http.Client{},
+		Timeout:    peek.Timeout,
+		Verbose:    peek.Verbose,
+		LogSink:    os.Stderr,
+	}
+	cmd := cli.NewRootCmd(cli.RootDeps{Env: env, ConfigStore: store, PlannerAPI: api, Stdout: os.Stdout, Stderr: os.Stderr})
 	if err := cmd.Execute(); err != nil {
 		// Best-effort classify errors into the required exit code contract.
 		mapped := err

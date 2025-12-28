@@ -10,6 +10,7 @@ import (
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
 	"github.com/BennettSmith/ebo-planner-cli/internal/ports/out"
+	outplannerapi "github.com/BennettSmith/ebo-planner-cli/internal/ports/out/plannerapi"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +18,7 @@ type RootDeps struct {
 	Env cliopts.EnvProvider
 
 	ConfigStore out.ConfigStore
+	PlannerAPI  outplannerapi.Client
 
 	Stdout io.Writer
 	Stderr io.Writer
@@ -85,6 +87,8 @@ func NewRootCmd(deps RootDeps) *cobra.Command {
 	addConfigCommands(cmd, deps)
 	addProfileCommands(cmd, deps)
 	addAuthCommands(cmd, deps)
+	addTripCommands(cmd, deps)
+	addMemberCommands(cmd, deps)
 
 	return cmd
 }
