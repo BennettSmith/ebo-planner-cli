@@ -18,6 +18,7 @@ func TestCode(t *testing.T) {
 		{"conflict", New(KindConflict, "dup", nil), Conflict},
 		{"validation", New(KindValidation, "invalid", nil), Validation},
 		{"server", New(KindServer, "down", nil), Server},
+		{"interrupted", New(KindInterrupted, "sigint", nil), Interrupted},
 		{"unexpected", New(KindUnexpected, "boom", nil), Unexpected},
 		{"plain error", errors.New("x"), Unexpected},
 		{"unknown kind", New("weird", "x", nil), Unexpected},

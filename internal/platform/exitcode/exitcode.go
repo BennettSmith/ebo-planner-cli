@@ -7,26 +7,28 @@ import (
 
 // Codes are the minimum required exit-code contract from docs/cli-spec.md.
 const (
-	Success    = 0
-	Unexpected = 1
-	Usage      = 2
-	Auth       = 3
-	NotFound   = 4
-	Conflict   = 5
-	Validation = 6
-	Server     = 7
+	Success     = 0
+	Unexpected  = 1
+	Usage       = 2
+	Auth        = 3
+	NotFound    = 4
+	Conflict    = 5
+	Validation  = 6
+	Server      = 7
+	Interrupted = 130
 )
 
 type Kind string
 
 const (
-	KindUnexpected Kind = "unexpected"
-	KindUsage      Kind = "usage"
-	KindAuth       Kind = "auth"
-	KindNotFound   Kind = "not_found"
-	KindConflict   Kind = "conflict"
-	KindValidation Kind = "validation"
-	KindServer     Kind = "server"
+	KindUnexpected  Kind = "unexpected"
+	KindUsage       Kind = "usage"
+	KindAuth        Kind = "auth"
+	KindNotFound    Kind = "not_found"
+	KindConflict    Kind = "conflict"
+	KindValidation  Kind = "validation"
+	KindServer      Kind = "server"
+	KindInterrupted Kind = "interrupted"
 )
 
 type Error struct {
@@ -73,6 +75,8 @@ func Code(err error) int {
 			return Validation
 		case KindServer:
 			return Server
+		case KindInterrupted:
+			return Interrupted
 		default:
 			return Unexpected
 		}
