@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -40,11 +41,23 @@ func main() {
 		if peek.Output == cliopts.OutputJSON {
 			_ = envelope.WriteJSON(os.Stdout, buildErrorEnvelope(peek, mapped))
 		} else {
-			_, _ = os.Stderr.WriteString(mapped.Error() + "\n")
+			_, _ = os.Stderr.WriteString(formatHumanError(peek, mapped))
 		}
 
 		os.Exit(code)
 	}
+}
+
+func formatHumanError(peek cliopts.GlobalOptions, err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := err.Error()
+	if peek.NoColor {
+		return fmt.Sprintf("ERROR: %s\n", msg)
+	}
+	// Red "ERROR:" prefix (ANSI), followed by the raw message.
+	return fmt.Sprintf("\x1b[31mERROR:\x1b[0m %s\n", msg)
 }
 
 func buildErrorEnvelope(peek cliopts.GlobalOptions, mapped error) envelope.Envelope {

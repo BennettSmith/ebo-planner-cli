@@ -159,7 +159,8 @@ func newTripRSVPGetCmd(deps RootDeps) *cobra.Command {
 				_, _ = io.WriteString(deps.Stdout, "OK\n")
 				return nil
 			}
-			_, _ = fmt.Fprintf(deps.Stdout, "Response: %s\n", resp.JSON200.MyRsvp.Response)
+			_, _ = io.WriteString(deps.Stdout, "TRIP_ID\tRESPONSE\n")
+			_, _ = fmt.Fprintf(deps.Stdout, "%s\t%s\n", tripID, resp.JSON200.MyRsvp.Response)
 			return nil
 		},
 	}
@@ -203,7 +204,8 @@ func newTripRSVPSummaryCmd(deps RootDeps) *cobra.Command {
 				return nil
 			}
 			s := resp.JSON200.RsvpSummary
-			_, _ = fmt.Fprintf(deps.Stdout, "AttendingRigs: %d\nAttendingMembers: %d\nNotAttendingMembers: %d\n", s.AttendingRigs, len(s.AttendingMembers), len(s.NotAttendingMembers))
+			_, _ = io.WriteString(deps.Stdout, "TRIP_ID\tATTENDING_RIGS\tATTENDING_MEMBERS\tNOT_ATTENDING_MEMBERS\n")
+			_, _ = fmt.Fprintf(deps.Stdout, "%s\t%d\t%d\t%d\n", tripID, s.AttendingRigs, len(s.AttendingMembers), len(s.NotAttendingMembers))
 			return nil
 		},
 	}

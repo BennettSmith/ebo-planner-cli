@@ -34,7 +34,7 @@ func resolveAPIContext(ctx context.Context, deps RootDeps, resolved cliopts.Reso
 	if strings.TrimSpace(eff.APIURL) == "" {
 		return apiContext{}, exitcode.New(
 			exitcode.KindUsage,
-			fmt.Sprintf("missing api url (set one with `ebo profile set %s --api-url <url>` or pass --api-url)", eff.Profile),
+			fmt.Sprintf("missing api url\nTry:\n  ebo profile set %s --api-url <url>\nOr pass:\n  --api-url <url>", eff.Profile),
 			nil,
 		)
 	}
@@ -43,12 +43,12 @@ func resolveAPIContext(ctx context.Context, deps RootDeps, resolved cliopts.Reso
 	if err != nil {
 		var nf config.ErrNotFound
 		if errors.As(err, &nf) {
-			return apiContext{}, exitcode.New(exitcode.KindAuth, "no token configured (try `ebo auth login`)", nil)
+			return apiContext{}, exitcode.New(exitcode.KindAuth, "no token configured\nTry:\n  ebo auth login", nil)
 		}
 		return apiContext{}, exitcode.New(exitcode.KindServer, "read token from config", err)
 	}
 	if strings.TrimSpace(tok) == "" {
-		return apiContext{}, exitcode.New(exitcode.KindAuth, "no token configured (try `ebo auth login`)", nil)
+		return apiContext{}, exitcode.New(exitcode.KindAuth, "no token configured\nTry:\n  ebo auth login", nil)
 	}
 
 	return apiContext{Profile: eff.Profile, APIURL: eff.APIURL, BearerToken: tok}, nil

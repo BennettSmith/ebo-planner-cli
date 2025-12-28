@@ -344,7 +344,10 @@ func newMemberMeCmd(deps RootDeps) *cobra.Command {
 			if err != nil {
 				var ae *plannerapiout.APIError
 				if errors.As(err, &ae) && ae != nil && ae.ErrorCode == "MEMBER_NOT_PROVISIONED" {
-					return exitcode.New(exitcode.KindNotFound, "member not provisioned; run `ebo member create ...`", err)
+					return exitcode.New(exitcode.KindNotFound,
+						"member not provisioned\nTry:\n  ebo member create --display-name <name> --email <email>",
+						err,
+					)
 				}
 				return err
 			}
