@@ -233,6 +233,9 @@ func newTripCreateCmd(deps RootDeps) *cobra.Command {
 				}
 				req = gen.CreateTripDraftRequest{Name: n}
 			case strings.TrimSpace(name) != "":
+				if err := validateSingleLineFlag(name, "--name"); err != nil {
+					return exitcode.New(exitcode.KindUsage, "invalid flag", err)
+				}
 				req = gen.CreateTripDraftRequest{Name: name}
 			default:
 				return exitcode.New(exitcode.KindUsage, "missing input (use --name, --from-file, or --prompt)", nil)
@@ -279,6 +282,20 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 		edit           bool
 		promptMode     bool
 		idempotencyKey string
+
+		patchName                    string
+		patchDescription             string
+		patchDifficultyText          string
+		patchCommsRequirementsText   string
+		patchRecommendedRequirements string
+		patchCapacityRigs            int
+		clearMeetingLocation         bool
+		meetingLabel                 string
+		meetingAddress               string
+		meetingLat                   float64
+		meetingLng                   float64
+		artifactIDs                  []string
+		clearArtifacts               bool
 	)
 
 	cmd := &cobra.Command{
@@ -311,11 +328,27 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 			if promptMode {
 				modeCount++
 			}
+			patchMode := cmd.Flags().Changed("name") ||
+				cmd.Flags().Changed("description") ||
+				cmd.Flags().Changed("difficulty-text") ||
+				cmd.Flags().Changed("comms-requirements-text") ||
+				cmd.Flags().Changed("recommended-requirements-text") ||
+				cmd.Flags().Changed("capacity-rigs") ||
+				cmd.Flags().Changed("meeting-label") ||
+				cmd.Flags().Changed("meeting-address") ||
+				cmd.Flags().Changed("meeting-lat") ||
+				cmd.Flags().Changed("meeting-lng") ||
+				cmd.Flags().Changed("artifact-id") ||
+				clearMeetingLocation ||
+				clearArtifacts
+			if patchMode {
+				modeCount++
+			}
 			if modeCount == 0 {
-				return exitcode.New(exitcode.KindUsage, "missing input (use --from-file, --edit, or --prompt)", nil)
+				return exitcode.New(exitcode.KindUsage, "missing input (use patch flags, --from-file, --edit, or --prompt)", nil)
 			}
 			if modeCount > 1 {
-				return exitcode.New(exitcode.KindUsage, "choose exactly one of --from-file, --edit, or --prompt", nil)
+				return exitcode.New(exitcode.KindUsage, "choose exactly one patch mode: flags, --from-file, --edit, or --prompt", nil)
 			}
 
 			var req gen.UpdateTripRequest
@@ -381,6 +414,90 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 				if len(ids) > 0 {
 					req.ArtifactIds = &ids
 				}
+			case patchMode:
+				// Validation: multiline text is not allowed via flags.
+				for _, v := range []struct {
+					changed bool
+					val     string
+					name    string
+				}{
+					{cmd.Flags().Changed("name"), patchName, "--name"},
+					{cmd.Flags().Changed("description"), patchDescription, "--description"},
+					{cmd.Flags().Changed("difficulty-text"), patchDifficultyText, "--difficulty-text"},
+					{cmd.Flags().Changed("comms-requirements-text"), patchCommsRequirementsText, "--comms-requirements-text"},
+					{cmd.Flags().Changed("recommended-requirements-text"), patchRecommendedRequirements, "--recommended-requirements-text"},
+					{cmd.Flags().Changed("meeting-label"), meetingLabel, "--meeting-label"},
+					{cmd.Flags().Changed("meeting-address"), meetingAddress, "--meeting-address"},
+				} {
+					if v.changed {
+						if err := validateSingleLineFlag(v.val, v.name); err != nil {
+							return exitcode.New(exitcode.KindUsage, "invalid flag", err)
+						}
+					}
+				}
+
+				if clearArtifacts && cmd.Flags().Changed("artifact-id") {
+					return exitcode.New(exitcode.KindUsage, "choose exactly one of --artifact-id or --clear-artifacts", nil)
+				}
+
+				if clearMeetingLocation && (cmd.Flags().Changed("meeting-label") || cmd.Flags().Changed("meeting-address") || cmd.Flags().Changed("meeting-lat") || cmd.Flags().Changed("meeting-lng")) {
+					return exitcode.New(exitcode.KindUsage, "--clear-meeting-location is mutually exclusive with meeting location flags", nil)
+				}
+
+				latSet := cmd.Flags().Changed("meeting-lat")
+				lngSet := cmd.Flags().Changed("meeting-lng")
+				if latSet != lngSet {
+					return exitcode.New(exitcode.KindUsage, "meeting lat/lng must be provided as a pair", nil)
+				}
+
+				if cmd.Flags().Changed("name") {
+					req.Name = &patchName
+				}
+				if cmd.Flags().Changed("description") {
+					req.Description = &patchDescription
+				}
+				if cmd.Flags().Changed("difficulty-text") {
+					req.DifficultyText = &patchDifficultyText
+				}
+				if cmd.Flags().Changed("comms-requirements-text") {
+					req.CommsRequirementsText = &patchCommsRequirementsText
+				}
+				if cmd.Flags().Changed("recommended-requirements-text") {
+					req.RecommendedRequirementsText = &patchRecommendedRequirements
+				}
+				if cmd.Flags().Changed("capacity-rigs") {
+					req.CapacityRigs = &patchCapacityRigs
+				}
+
+				if clearArtifacts {
+					empty := []string{}
+					req.ArtifactIds = &empty
+				}
+				if cmd.Flags().Changed("artifact-id") {
+					dedup := dedupStringsPreserveFirst(artifactIDs)
+					req.ArtifactIds = &dedup
+				}
+
+				if clearMeetingLocation {
+					req.MeetingLocation = &gen.LocationPatch{}
+				} else if cmd.Flags().Changed("meeting-label") || cmd.Flags().Changed("meeting-address") || latSet || lngSet {
+					loc := &gen.LocationPatch{}
+					if cmd.Flags().Changed("meeting-label") {
+						loc.Label = &meetingLabel
+					}
+					if cmd.Flags().Changed("meeting-address") {
+						loc.Address = &meetingAddress
+					}
+					if latSet && lngSet {
+						lat := meetingLat
+						lng := meetingLng
+						loc.LatitudeLongitude = &struct {
+							Latitude  *float64 `json:"latitude"`
+							Longitude *float64 `json:"longitude"`
+						}{Latitude: &lat, Longitude: &lng}
+					}
+					req.MeetingLocation = loc
+				}
 			default:
 				if err := requestfile.LoadStrict(fromFile, &req); err != nil {
 					return exitcode.New(exitcode.KindUsage, "parse request file", err)
@@ -414,6 +531,19 @@ func newTripUpdateCmd(deps RootDeps) *cobra.Command {
 	cmd.Flags().BoolVar(&edit, "edit", false, "Edit request body in $EBO_EDITOR/$EDITOR (YAML template)")
 	cmd.Flags().BoolVar(&promptMode, "prompt", false, "Interactive guided entry")
 	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	cmd.Flags().StringVar(&patchName, "name", "", "Trip name (single line; disallows newlines)")
+	cmd.Flags().StringVar(&patchDescription, "description", "", "Trip description (single line; disallows newlines)")
+	cmd.Flags().StringVar(&patchDifficultyText, "difficulty-text", "", "Difficulty text (single line; disallows newlines)")
+	cmd.Flags().StringVar(&patchCommsRequirementsText, "comms-requirements-text", "", "Comms requirements text (single line; disallows newlines)")
+	cmd.Flags().StringVar(&patchRecommendedRequirements, "recommended-requirements-text", "", "Recommended requirements text (single line; disallows newlines)")
+	cmd.Flags().IntVar(&patchCapacityRigs, "capacity-rigs", 0, "Capacity rigs")
+	cmd.Flags().BoolVar(&clearMeetingLocation, "clear-meeting-location", false, "Clear meeting location")
+	cmd.Flags().StringVar(&meetingLabel, "meeting-label", "", "Meeting location label (single line)")
+	cmd.Flags().StringVar(&meetingAddress, "meeting-address", "", "Meeting location address (single line)")
+	cmd.Flags().Float64Var(&meetingLat, "meeting-lat", 0, "Meeting latitude (requires --meeting-lng)")
+	cmd.Flags().Float64Var(&meetingLng, "meeting-lng", 0, "Meeting longitude (requires --meeting-lat)")
+	cmd.Flags().StringArrayVar(&artifactIDs, "artifact-id", nil, "Replace artifacts with this ordered list of artifact IDs (repeatable; deduped)")
+	cmd.Flags().BoolVar(&clearArtifacts, "clear-artifacts", false, "Clear artifacts list")
 
 	return cmd
 }
@@ -452,4 +582,24 @@ func editTextTemplateYAML(key string, title string) string {
 # Put your text under "%s".
 %s: |-
   `+"\n", title, key, key)
+}
+
+func validateSingleLineFlag(v string, flagName string) error {
+	if strings.Contains(v, "\n") || strings.Contains(v, "\r") {
+		return fmt.Errorf("%s must be single line (no newlines)", flagName)
+	}
+	return nil
+}
+
+func dedupStringsPreserveFirst(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }

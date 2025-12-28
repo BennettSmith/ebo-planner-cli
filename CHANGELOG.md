@@ -25,6 +25,7 @@ Notes:
 - Added `--edit` editor-based request mode for `ebo trip update` and `ebo member update`.
 - Added `--prompt` interactive guided-entry mode for `ebo trip create`, `ebo trip update`, and `ebo member update`.
 - Added trip read commands: `ebo trip list`, `ebo trip drafts`, and `ebo trip get <tripId>`.
+- Added `ebo trip update` patch flags for common fields (including meeting location and artifacts), plus validation/mutual-exclusion rules for clear/replace semantics.
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
 - Added an architecture dependency guard test to enforce hex-layer import rules in CI.
 - Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).
