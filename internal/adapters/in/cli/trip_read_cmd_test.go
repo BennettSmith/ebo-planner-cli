@@ -110,6 +110,14 @@ func (f *fakeTripReadAPI) GetMyMemberProfile(ctx context.Context, baseURL string
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 
+func (f *fakeTripReadAPI) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = req
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func (f *fakeTripReadAPI) SetMyRSVP(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.SetMyRSVPJSONRequestBody) (*gen.SetMyRSVPClientResponse, error) {
 	_ = ctx
 	_ = baseURL

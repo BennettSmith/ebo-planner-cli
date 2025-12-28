@@ -302,3 +302,26 @@ func TestStore_Save_MkdirAllFails(t *testing.T) {
 		t.Fatalf("expected error")
 	}
 }
+
+func TestStore_Save_RenameFailsWhenDestIsDirectory(t *testing.T) {
+	base := t.TempDir()
+	s := Store{Env: mapEnv{"EBO_CONFIG_DIR": base}}
+
+	p, err := s.Path(context.Background())
+	if err != nil {
+		t.Fatalf("path: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Create a directory where the config file should be, so os.Rename fails.
+	if err := os.Mkdir(p, 0o755); err != nil {
+		t.Fatalf("mkdir dest: %v", err)
+	}
+
+	doc := config.NewEmptyDocument()
+	doc, _ = config.SetString(doc, "profiles.default.apiUrl", "http://x")
+	if err := s.Save(context.Background(), doc); err == nil {
+		t.Fatalf("expected error")
+	}
+}

@@ -65,6 +65,10 @@ func (f *fakeTripOrganizerAPI) GetMyMemberProfile(ctx context.Context, baseURL s
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 
+func (f *fakeTripOrganizerAPI) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
 func (f *fakeTripOrganizerAPI) AddTripOrganizer(ctx context.Context, baseURL string, bearerToken string, tripID gen.TripId, idempotencyKey string, req gen.AddTripOrganizerJSONRequestBody) (*gen.AddTripOrganizerClientResponse, error) {
 	_ = ctx
 	_ = baseURL
