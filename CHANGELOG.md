@@ -23,6 +23,7 @@ Notes:
 - Added `ebo config` commands (path/get/set/unset/list) with secret redaction and `--include-secrets` for JSON output.
 - Added `--from-file <path>` JSON/YAML request mode for `ebo trip create`, `ebo trip update`, and `ebo member update`.
 - Added `--edit` editor-based request mode for `ebo trip update` and `ebo member update`.
+- Added `--prompt` interactive guided-entry mode for `ebo trip create`, `ebo trip update`, and `ebo member update`.
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
 - Added an architecture dependency guard test to enforce hex-layer import rules in CI.
 - Added a `plannerapi` outbound port and HTTP adapter wrapping the generated OpenAPI client (auth + idempotency headers + normalized errors).
