@@ -2,7 +2,9 @@ package configapp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
 	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
@@ -44,7 +46,40 @@ func (s Service) Set(ctx context.Context, key, value string) error {
 	if err != nil {
 		return exitcode.New(exitcode.KindServer, "load config", err)
 	}
-	doc, err = config.SetString(doc, key, value)
+
+	// Special-case: OIDC scopes must be a YAML array. `ebo config set` takes a string input,
+	// but we allow providing the array as a JSON string array (recommended) or a comma/space list.
+	if strings.HasSuffix(strings.TrimSpace(key), ".oidc.scopes") {
+		raw := strings.TrimSpace(value)
+		var scopes []string
+		if strings.HasPrefix(raw, "[") {
+			if err := json.Unmarshal([]byte(raw), &scopes); err != nil {
+				return exitcode.New(exitcode.KindUsage, "invalid oidc scopes (expected JSON string array like [\"openid\",\"profile\"])", err)
+			}
+		} else if strings.Contains(raw, ",") {
+			for _, p := range strings.Split(raw, ",") {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					continue
+				}
+				scopes = append(scopes, p)
+			}
+		} else {
+			for _, p := range strings.Fields(raw) {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					continue
+				}
+				scopes = append(scopes, p)
+			}
+		}
+		if len(scopes) == 0 {
+			return exitcode.New(exitcode.KindUsage, "invalid oidc scopes (must include at least one scope, e.g. openid)", nil)
+		}
+		doc, err = config.SetStringList(doc, key, scopes)
+	} else {
+		doc, err = config.SetString(doc, key, value)
+	}
 	if err != nil {
 		return exitcode.New(exitcode.KindUsage, "invalid config key", err)
 	}
