@@ -179,6 +179,106 @@ func TestService_Set_InvalidKeyIsUsage(t *testing.T) {
 	}
 }
 
+func TestService_Set_OIDCScopes_JSONArray_PersistsAndParses(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	ctx := context.Background()
+
+	if err := s.Set(ctx, "profiles.dev.oidc.issuerUrl", "http://localhost:8082/realms/ebo"); err != nil {
+		t.Fatalf("issuer: %v", err)
+	}
+	if err := s.Set(ctx, "profiles.dev.oidc.clientId", "ebo-client"); err != nil {
+		t.Fatalf("client: %v", err)
+	}
+	if err := s.Set(ctx, "profiles.dev.oidc.scopes", `["openid","profile","email"]`); err != nil {
+		t.Fatalf("scopes: %v", err)
+	}
+
+	oc, err := config.OIDCOf(m.doc, "dev")
+	if err != nil {
+		t.Fatalf("oidc: %v", err)
+	}
+	if oc.Scopes[0] != "openid" || len(oc.Scopes) != 3 {
+		t.Fatalf("scopes %#v", oc.Scopes)
+	}
+}
+
+func TestService_Set_OIDCScopes_CommaList_PersistsAndParses(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	ctx := context.Background()
+
+	_ = s.Set(ctx, "profiles.dev.oidc.issuerUrl", "http://localhost:8082/realms/ebo")
+	_ = s.Set(ctx, "profiles.dev.oidc.clientId", "ebo-client")
+
+	if err := s.Set(ctx, "profiles.dev.oidc.scopes", "openid,profile"); err != nil {
+		t.Fatalf("scopes: %v", err)
+	}
+	oc, err := config.OIDCOf(m.doc, "dev")
+	if err != nil {
+		t.Fatalf("oidc: %v", err)
+	}
+	if len(oc.Scopes) != 2 || oc.Scopes[0] != "openid" || oc.Scopes[1] != "profile" {
+		t.Fatalf("scopes %#v", oc.Scopes)
+	}
+}
+
+func TestService_Set_OIDCScopes_SpaceList_PersistsAndParses(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	ctx := context.Background()
+
+	_ = s.Set(ctx, "profiles.dev.oidc.issuerUrl", "http://localhost:8082/realms/ebo")
+	_ = s.Set(ctx, "profiles.dev.oidc.clientId", "ebo-client")
+
+	if err := s.Set(ctx, "profiles.dev.oidc.scopes", "openid profile"); err != nil {
+		t.Fatalf("scopes: %v", err)
+	}
+	oc, err := config.OIDCOf(m.doc, "dev")
+	if err != nil {
+		t.Fatalf("oidc: %v", err)
+	}
+	if len(oc.Scopes) != 2 || oc.Scopes[0] != "openid" || oc.Scopes[1] != "profile" {
+		t.Fatalf("scopes %#v", oc.Scopes)
+	}
+}
+
+func TestService_Set_OIDCScopes_InvalidJSON_IsUsage(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	err := s.Set(context.Background(), "profiles.dev.oidc.scopes", `["openid",]`)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage, got %d", exitcode.Code(err))
+	}
+}
+
+func TestService_Set_OIDCScopes_Empty_IsUsage(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	err := s.Set(context.Background(), "profiles.dev.oidc.scopes", "")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage, got %d", exitcode.Code(err))
+	}
+}
+
+func TestService_Set_OIDCScopes_EmptyJSONArray_IsUsage(t *testing.T) {
+	m := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	s := Service{Store: m}
+	err := s.Set(context.Background(), "profiles.dev.oidc.scopes", "[]")
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage, got %d", exitcode.Code(err))
+	}
+}
+
 func TestService_ListYAML_IncludeSecrets(t *testing.T) {
 	doc := config.NewEmptyDocument()
 	doc, _ = config.SetString(doc, "profiles.dev.auth.accessToken", "secret")

@@ -50,5 +50,6 @@ Notes:
 
 ### Fixed
 - Fixed a panic in `ebo auth login` polling when the IdP returns `authorization_pending` during device flow.
+- Fixed `ebo auth login` setup: `ebo config set profiles.<name>.oidc.scopes ...` now persists scopes as a list (so OIDC device-flow login no longer fails with "missing scopes").
 
 ### Security

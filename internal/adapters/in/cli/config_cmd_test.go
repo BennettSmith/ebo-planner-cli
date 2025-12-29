@@ -179,6 +179,54 @@ func TestConfigSet_TableOKAndPersists(t *testing.T) {
 	}
 }
 
+func TestConfigSet_OIDCScopes_JSONArray_PersistsAsYAMLSequence(t *testing.T) {
+	store := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := NewRootCmd(RootDeps{Env: nil, ConfigStore: store, Stdout: stdout, Stderr: stderr})
+
+	cmd.SetArgs([]string{"config", "set", "profiles.dev.oidc.issuerUrl", "http://localhost:8082/realms/ebo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("issuerUrl set: %v", err)
+	}
+	cmd.SetArgs([]string{"config", "set", "profiles.dev.oidc.clientId", "ebo-client"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("clientId set: %v", err)
+	}
+	cmd.SetArgs([]string{"config", "set", "profiles.dev.oidc.scopes", `["openid","profile","email"]`})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("scopes set: %v", err)
+	}
+
+	// This is the real contract: OIDCOf requires scopes to be a YAML sequence node.
+	oc, err := config.OIDCOf(store.doc, "dev")
+	if err != nil {
+		t.Fatalf("OIDCOf: %v", err)
+	}
+	if oc.IssuerURL == "" || oc.ClientID == "" {
+		t.Fatalf("got %#v", oc)
+	}
+	if len(oc.Scopes) < 1 || oc.Scopes[0] != "openid" {
+		t.Fatalf("scopes %#v", oc.Scopes)
+	}
+}
+
+func TestConfigSet_OIDCScopes_InvalidJSON_IsUsage(t *testing.T) {
+	store := &memStore{path: "/x", doc: config.NewEmptyDocument()}
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := NewRootCmd(RootDeps{Env: nil, ConfigStore: store, Stdout: stdout, Stderr: stderr})
+
+	cmd.SetArgs([]string{"config", "set", "profiles.dev.oidc.scopes", `["openid",]`})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Usage {
+		t.Fatalf("expected usage, got %d", exitcode.Code(err))
+	}
+}
+
 func TestConfigUnset_TableOK(t *testing.T) {
 	doc := config.NewEmptyDocument()
 	doc, _ = config.SetString(doc, "profiles.dev.apiUrl", "http://x")

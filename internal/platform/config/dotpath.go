@@ -80,6 +80,33 @@ func SetString(doc Document, key string, value string) (Document, error) {
 	return doc, nil
 }
 
+// SetStringList sets a YAML sequence of scalar strings at a dot-path key, creating missing maps.
+func SetStringList(doc Document, key string, values []string) (Document, error) {
+	parts, err := splitPath(key)
+	if err != nil {
+		return Document{}, err
+	}
+	root, err := rootMapping(doc)
+	if err != nil {
+		return Document{}, err
+	}
+
+	seq := &yaml.Node{Kind: yaml.SequenceNode}
+	for _, v := range values {
+		seq.Content = append(seq.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v})
+	}
+
+	n := root
+	for i, p := range parts {
+		if i == len(parts)-1 {
+			mapSetNode(n, p, seq)
+			return doc, nil
+		}
+		n = mapEnsureMapping(n, p)
+	}
+	return doc, nil
+}
+
 // Unset removes the key at the dot-path.
 // If the key doesn't exist, it is a no-op.
 func Unset(doc Document, key string) (Document, error) {

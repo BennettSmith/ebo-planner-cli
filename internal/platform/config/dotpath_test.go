@@ -90,6 +90,38 @@ func TestSetString_InvalidKey(t *testing.T) {
 	}
 }
 
+func TestSetStringList_WritesSequence(t *testing.T) {
+	doc := NewEmptyDocument()
+	var err error
+	doc, err = SetStringList(doc, "profiles.dev.oidc.scopes", []string{"openid", "profile"})
+	if err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	root, err := rootMapping(doc)
+	if err != nil {
+		t.Fatalf("root: %v", err)
+	}
+	profiles := mapGet(root, "profiles")
+	if profiles == nil || profiles.Kind != yaml.MappingNode {
+		t.Fatalf("profiles node missing/invalid")
+	}
+	dev := mapGet(profiles, "dev")
+	if dev == nil || dev.Kind != yaml.MappingNode {
+		t.Fatalf("dev node missing/invalid")
+	}
+	oidc := mapGet(dev, "oidc")
+	if oidc == nil || oidc.Kind != yaml.MappingNode {
+		t.Fatalf("oidc node missing/invalid")
+	}
+	scopes := mapGet(oidc, "scopes")
+	if scopes == nil || scopes.Kind != yaml.SequenceNode {
+		t.Fatalf("scopes node missing/invalid: %#v", scopes)
+	}
+	if len(scopes.Content) != 2 || scopes.Content[0].Value != "openid" || scopes.Content[1].Value != "profile" {
+		t.Fatalf("scopes content %#v", scopes.Content)
+	}
+}
+
 func TestErrNotFound_ErrorString(t *testing.T) {
 	err := ErrNotFound{Key: "a.b"}
 	if got := err.Error(); got == "" {
