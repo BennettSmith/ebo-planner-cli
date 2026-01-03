@@ -43,6 +43,7 @@ Notes:
 
 ### Changed
 - CI now runs `go test` with `-count=1` to disable test result caching.
+- Makefile: added local development helper targets for the CLI and Keycloak.
 
 ### Deprecated
 
