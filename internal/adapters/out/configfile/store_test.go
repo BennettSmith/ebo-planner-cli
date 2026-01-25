@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
 	"gopkg.in/yaml.v3"
 )
 

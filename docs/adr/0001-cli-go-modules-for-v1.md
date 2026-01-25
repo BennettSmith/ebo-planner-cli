@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Issue: `ebo-planner-cli#7`
+Issue: `trip-planner-cli#7`
 
 The v1 CLI needs a small set of foundational dependencies to implement the CLI spec:
 

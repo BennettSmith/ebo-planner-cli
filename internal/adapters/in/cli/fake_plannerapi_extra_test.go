@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 // Satisfy newly-added plannerapi.Client methods for existing tests that use fakePlannerAPI.
@@ -106,6 +106,15 @@ func (f *fakePlannerAPI) GetMyMemberProfile(ctx context.Context, baseURL string,
 	_ = ctx
 	_ = baseURL
 	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
+}
+
+func (f *fakePlannerAPI) DeleteMyMemberAccount(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.DeleteMyMemberAccountJSONRequestBody) (*gen.DeleteMyMemberAccountClientResponse, error) {
+	_ = ctx
+	_ = baseURL
+	_ = bearerToken
+	_ = idempotencyKey
+	_ = req
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in this test fake", nil)
 }
 

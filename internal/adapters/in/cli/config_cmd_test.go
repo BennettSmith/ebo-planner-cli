@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 type memStore struct {

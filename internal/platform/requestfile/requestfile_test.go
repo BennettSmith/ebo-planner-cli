@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
 )
 
 func writeTemp(t *testing.T, ext string, content string) string {

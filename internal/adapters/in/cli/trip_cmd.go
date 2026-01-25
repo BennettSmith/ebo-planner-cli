@@ -6,14 +6,14 @@ import (
 	"os"
 	"strings"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/editmode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/idempotency"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/prompt"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/requestfile"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/editmode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/envelope"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/idempotency"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/prompt"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/requestfile"
 	"github.com/spf13/cobra"
 )
 

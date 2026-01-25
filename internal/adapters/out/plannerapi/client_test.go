@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 func TestAdapter_SendsAuthorizationHeader(t *testing.T) {
@@ -110,6 +110,59 @@ func TestAdapter_GetMyMemberProfile_Maps404ToNotFound(t *testing.T) {
 	}
 }
 
+func TestAdapter_DeleteMyMemberAccount_HitsEndpointWithIdempotencyAndBody(t *testing.T) {
+	seen := ""
+	seenIdem := ""
+	seenBody := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Method + " " + r.URL.Path
+		seenIdem = r.Header.Get("Idempotency-Key")
+		b, _ := io.ReadAll(r.Body)
+		seenBody = string(b)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"deleted":true,"deletedAt":null}`))
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.DeleteMyMemberAccount(context.Background(), srv.URL, "tok", "k1", gen.DeleteMyMemberRequest{Confirm: true, Reason: ptr("bye")})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if seen != "DELETE /members/me" {
+		t.Fatalf("got %q", seen)
+	}
+	if seenIdem != "k1" {
+		t.Fatalf("idempotency: got %q", seenIdem)
+	}
+	if !strings.Contains(seenBody, `"confirm":true`) {
+		t.Fatalf("body: %q", seenBody)
+	}
+	if !strings.Contains(seenBody, `"reason":"bye"`) {
+		t.Fatalf("body: %q", seenBody)
+	}
+}
+
+func TestAdapter_DeleteMyMemberAccount_Maps409ToConflict(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(409)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]any{"code": "CONFLICT", "message": "nope"},
+		})
+	}))
+	defer srv.Close()
+
+	a := Adapter{}
+	_, err := a.DeleteMyMemberAccount(context.Background(), srv.URL, "tok", "k1", gen.DeleteMyMemberRequest{Confirm: true})
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if exitcode.Code(err) != exitcode.Conflict {
+		t.Fatalf("expected conflict exit 5, got %d", exitcode.Code(err))
+	}
+}
+
 func TestAdapter_CreateMyMember_HitsEndpoint(t *testing.T) {
 	seen := ""
 	seenBody := ""
@@ -134,6 +187,8 @@ func TestAdapter_CreateMyMember_HitsEndpoint(t *testing.T) {
 		t.Fatalf("body: %q", seenBody)
 	}
 }
+
+func ptr[T any](v T) *T { return &v }
 
 func TestAdapter_CreateMyMember_Maps409ToConflict(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

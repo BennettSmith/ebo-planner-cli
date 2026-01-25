@@ -103,6 +103,7 @@ If a CLI feature would require a new endpoint, a changed request/response shape,
 - Cursor agents MUST NOT enable GitHub auto-merge.
 - Cursor agents MUST NOT merge PRs.
 - When work is complete, the agent MUST leave the PR open for a human maintainer to review and merge manually.
+- When posting **multi-line PR comments** via `gh`, you MUST use `--body-file` (or `--edit-last --body-file`) rather than passing escaped newlines in `--body`. This ensures GitHub renders Markdown correctly and avoids posting literal `\n` sequences.
 
 Example:
 

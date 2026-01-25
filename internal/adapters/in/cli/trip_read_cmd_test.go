@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	outplannerapi "github.com/BennettSmith/ebo-planner-cli/internal/ports/out/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	outplannerapi "github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out/plannerapi"
 )
 
 type fakeTripReadAPI struct {
@@ -107,6 +107,10 @@ func (f *fakeTripReadAPI) GetMyMemberProfile(ctx context.Context, baseURL string
 	_ = ctx
 	_ = baseURL
 	_ = bearerToken
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
+}
+
+func (f *fakeTripReadAPI) DeleteMyMemberAccount(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.DeleteMyMemberAccountJSONRequestBody) (*gen.DeleteMyMemberAccountClientResponse, error) {
 	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 

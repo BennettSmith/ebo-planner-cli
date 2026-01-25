@@ -6,10 +6,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/app/configapp"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/app/configapp"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/envelope"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 	"github.com/spf13/cobra"
 )
 

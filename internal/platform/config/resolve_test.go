@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
 	"github.com/spf13/pflag"
 )
 

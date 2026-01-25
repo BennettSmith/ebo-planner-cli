@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 func TestTripUpdate_Flags_ArtifactIDs_DedupPreserveFirst(t *testing.T) {

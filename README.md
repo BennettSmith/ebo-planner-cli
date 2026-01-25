@@ -1,6 +1,6 @@
-# ebo-planner-cli
+# trip-planner-cli
 
-`ebo` is a command-line interface for interacting with the **East Bay Overland Trip Planning** service.
+`ebo` is a command-line interface for interacting with the **Overland East Bay Trip Planning** service.
 
 - Normative behavior: `docs/cli-spec.md`
 - Releasing + spec pinning: `docs/releasing.md`

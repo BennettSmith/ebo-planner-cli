@@ -8,15 +8,15 @@ import (
 	"os"
 	"strings"
 
-	plannerapiout "github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/plannerapi"
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/editmode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/idempotency"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/prompt"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/requestfile"
+	plannerapiout "github.com/Overland-East-Bay/trip-planner-cli/internal/adapters/out/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/editmode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/envelope"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/idempotency"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/prompt"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/requestfile"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/spf13/cobra"
 )
@@ -29,9 +29,76 @@ func addMemberCommands(root *cobra.Command, deps RootDeps) {
 	memberCmd.AddCommand(newMemberListCmd(deps))
 	memberCmd.AddCommand(newMemberSearchCmd(deps))
 	memberCmd.AddCommand(newMemberMeCmd(deps))
+	memberCmd.AddCommand(newMemberDeleteCmd(deps))
 	memberCmd.AddCommand(newMemberCreateCmd(deps))
 	memberCmd.AddCommand(newMemberUpdateCmd(deps))
 	root.AddCommand(memberCmd)
+}
+
+func newMemberDeleteCmd(deps RootDeps) *cobra.Command {
+	var (
+		force          bool
+		idempotencyKey string
+		reason         string
+	)
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete my member account (destructive)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			_ = args
+			ctx := cmd.Context()
+			if deps.PlannerAPI == nil {
+				return exitcode.New(exitcode.KindUnexpected, "planner api", fmt.Errorf("nil planner api client"))
+			}
+			resolved, err := resolvedFromRoot(cmd, deps)
+			if err != nil {
+				return err
+			}
+			apiCtx, err := resolveAPIContext(ctx, deps, resolved)
+			if err != nil {
+				return err
+			}
+
+			if !force {
+				return exitcode.New(exitcode.KindUsage, "refusing to delete without --force", nil)
+			}
+			if err := validateSingleLineFlag(reason, "--reason"); err != nil {
+				return exitcode.New(exitcode.KindUsage, "invalid --reason", err)
+			}
+
+			if strings.TrimSpace(idempotencyKey) == "" {
+				idempotencyKey = idempotency.NewKey()
+			}
+
+			req := gen.DeleteMyMemberRequest{
+				Confirm: true,
+			}
+			if strings.TrimSpace(reason) != "" {
+				r := strings.TrimSpace(reason)
+				req.Reason = &r
+			}
+
+			resp, err := deps.PlannerAPI.DeleteMyMemberAccount(ctx, apiCtx.APIURL, apiCtx.BearerToken, idempotencyKey, req)
+			if err != nil {
+				return err
+			}
+
+			if resolved.Options.Output == cliopts.OutputJSON {
+				return envelope.WriteJSON(deps.Stdout, envelope.Envelope{
+					Data: resp.JSON200,
+					Meta: envelope.Meta{APIURL: apiCtx.APIURL, Profile: apiCtx.Profile, IdempotencyKey: idempotencyKey},
+				})
+			}
+
+			_, _ = fmt.Fprintf(deps.Stderr, "Idempotency-Key: %s\n", idempotencyKey)
+			_, _ = io.WriteString(deps.Stdout, "OK\n")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "Required: confirm member deletion")
+	cmd.Flags().StringVar(&idempotencyKey, "idempotency-key", "", "Idempotency key (auto-generated if omitted)")
+	cmd.Flags().StringVar(&reason, "reason", "", "Optional deletion reason (single-line)")
+	return cmd
 }
 
 func newMemberCreateCmd(deps RootDeps) *cobra.Command {

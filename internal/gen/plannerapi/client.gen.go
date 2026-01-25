@@ -85,6 +85,24 @@ type CreateTripDraftResponse struct {
 	Trip TripCreated `json:"trip"`
 }
 
+// DeleteMyMemberRequest Request body for self-service member deletion.
+type DeleteMyMemberRequest struct {
+	// Confirm Must be true to proceed with deletion.
+	Confirm bool `json:"confirm"`
+
+	// Reason Optional user-provided reason (best-effort; for audit/analytics).
+	Reason *string `json:"reason"`
+}
+
+// DeleteMyMemberResponse defines model for DeleteMyMemberResponse.
+type DeleteMyMemberResponse struct {
+	// Deleted True when deletion has been applied (idempotent).
+	Deleted bool `json:"deleted"`
+
+	// DeletedAt When deletion was applied (best-effort).
+	DeletedAt *time.Time `json:"deletedAt"`
+}
+
 // DraftVisibility defines model for DraftVisibility.
 type DraftVisibility string
 
@@ -336,6 +354,12 @@ type ListMembersParams struct {
 	IncludeInactive *IncludeInactive `form:"includeInactive,omitempty" json:"includeInactive,omitempty"`
 }
 
+// DeleteMyMemberAccountParams defines parameters for DeleteMyMemberAccount.
+type DeleteMyMemberAccountParams struct {
+	// IdempotencyKey Required idempotency key for safely retrying this mutating request.
+	IdempotencyKey RequiredIdempotencyKey `json:"Idempotency-Key"`
+}
+
 // UpdateMyMemberProfileParams defines parameters for UpdateMyMemberProfile.
 type UpdateMyMemberProfileParams struct {
 	// IdempotencyKey Required idempotency key for safely retrying this mutating request.
@@ -392,6 +416,9 @@ type SetMyRSVPParams struct {
 
 // CreateMyMemberJSONRequestBody defines body for CreateMyMember for application/json ContentType.
 type CreateMyMemberJSONRequestBody = CreateMemberRequest
+
+// DeleteMyMemberAccountJSONRequestBody defines body for DeleteMyMemberAccount for application/json ContentType.
+type DeleteMyMemberAccountJSONRequestBody = DeleteMyMemberRequest
 
 // UpdateMyMemberProfileJSONRequestBody defines body for UpdateMyMemberProfile for application/json ContentType.
 type UpdateMyMemberProfileJSONRequestBody = UpdateMyMemberProfileRequest
@@ -492,6 +519,11 @@ type ClientInterface interface {
 
 	CreateMyMember(ctx context.Context, body CreateMyMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteMyMemberAccountWithBody request with any body
+	DeleteMyMemberAccountWithBody(ctx context.Context, params *DeleteMyMemberAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteMyMemberAccount(ctx context.Context, params *DeleteMyMemberAccountParams, body DeleteMyMemberAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMyMemberProfile request
 	GetMyMemberProfile(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -579,6 +611,30 @@ func (c *Client) CreateMyMemberWithBody(ctx context.Context, contentType string,
 
 func (c *Client) CreateMyMember(ctx context.Context, body CreateMyMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateMyMemberRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteMyMemberAccountWithBody(ctx context.Context, params *DeleteMyMemberAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMyMemberAccountRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteMyMemberAccount(ctx context.Context, params *DeleteMyMemberAccountParams, body DeleteMyMemberAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMyMemberAccountRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -938,6 +994,59 @@ func NewCreateMyMemberRequestWithBody(server string, contentType string, body io
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteMyMemberAccountRequest calls the generic DeleteMyMemberAccount builder with application/json body
+func NewDeleteMyMemberAccountRequest(server string, params *DeleteMyMemberAccountParams, body DeleteMyMemberAccountJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteMyMemberAccountRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewDeleteMyMemberAccountRequestWithBody generates requests for DeleteMyMemberAccount with any type of body
+func NewDeleteMyMemberAccountRequestWithBody(server string, params *DeleteMyMemberAccountParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/members/me")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithLocation("simple", false, "Idempotency-Key", runtime.ParamLocationHeader, params.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("Idempotency-Key", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1704,6 +1813,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateMyMemberWithResponse(ctx context.Context, body CreateMyMemberJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateMyMemberClientResponse, error)
 
+	// DeleteMyMemberAccountWithBodyWithResponse request with any body
+	DeleteMyMemberAccountWithBodyWithResponse(ctx context.Context, params *DeleteMyMemberAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteMyMemberAccountClientResponse, error)
+
+	DeleteMyMemberAccountWithResponse(ctx context.Context, params *DeleteMyMemberAccountParams, body DeleteMyMemberAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteMyMemberAccountClientResponse, error)
+
 	// GetMyMemberProfileWithResponse request
 	GetMyMemberProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMyMemberProfileClientResponse, error)
 
@@ -1811,6 +1925,32 @@ func (r CreateMyMemberClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateMyMemberClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteMyMemberAccountClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeleteMyMemberResponse
+	JSON401      *Unauthorized
+	JSON404      *ErrorResponse
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMyMemberAccountClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMyMemberAccountClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2272,6 +2412,23 @@ func (c *ClientWithResponses) CreateMyMemberWithResponse(ctx context.Context, bo
 	return ParseCreateMyMemberClientResponse(rsp)
 }
 
+// DeleteMyMemberAccountWithBodyWithResponse request with arbitrary body returning *DeleteMyMemberAccountClientResponse
+func (c *ClientWithResponses) DeleteMyMemberAccountWithBodyWithResponse(ctx context.Context, params *DeleteMyMemberAccountParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteMyMemberAccountClientResponse, error) {
+	rsp, err := c.DeleteMyMemberAccountWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMyMemberAccountClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteMyMemberAccountWithResponse(ctx context.Context, params *DeleteMyMemberAccountParams, body DeleteMyMemberAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteMyMemberAccountClientResponse, error) {
+	rsp, err := c.DeleteMyMemberAccount(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMyMemberAccountClientResponse(rsp)
+}
+
 // GetMyMemberProfileWithResponse request returning *GetMyMemberProfileClientResponse
 func (c *ClientWithResponses) GetMyMemberProfileWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMyMemberProfileClientResponse, error) {
 	rsp, err := c.GetMyMemberProfile(ctx, reqEditors...)
@@ -2547,6 +2704,60 @@ func ParseCreateMyMemberClientResponse(rsp *http.Response) (*CreateMyMemberClien
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMyMemberAccountClientResponse parses an HTTP response from a DeleteMyMemberAccountWithResponse call
+func ParseDeleteMyMemberAccountClientResponse(rsp *http.Response) (*DeleteMyMemberAccountClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMyMemberAccountClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteMyMemberResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

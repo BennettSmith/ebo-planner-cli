@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 func TestMemberUpdate_FlagsAndFromFile_IsUsage_NoAPICall(t *testing.T) {

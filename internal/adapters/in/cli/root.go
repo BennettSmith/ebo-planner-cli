@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/browseropen"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/ports/out"
-	outplannerapi "github.com/BennettSmith/ebo-planner-cli/internal/ports/out/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/browseropen"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/envelope"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out"
+	outplannerapi "github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out/plannerapi"
 	"github.com/spf13/cobra"
 )
 

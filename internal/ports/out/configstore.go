@@ -3,7 +3,7 @@ package out
 import (
 	"context"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
 )
 
 // ConfigStore persists and loads the CLI configuration.

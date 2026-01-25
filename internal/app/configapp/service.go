@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	"github.com/BennettSmith/ebo-planner-cli/internal/ports/out"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out"
 )
 
 type Service struct {
