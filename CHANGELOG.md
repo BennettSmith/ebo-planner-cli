@@ -31,6 +31,7 @@ Notes:
 - Added trip RSVP commands: `ebo trip rsvp set|get|summary` (with `--yes|--no|--unset` for `set`).
 - Added member read commands: `ebo member list|search|me`.
 - Added `ebo member create` for provisioning a member profile (no `--idempotency-key`; natural retry via API).
+- Added `ebo member delete` for self-service member deletion (requires `--force`), with optional `--reason` and idempotency key support.
 - Added patch flags and clear semantics for `ebo member update` (including vehicle clear flags and idempotency key auto-generation).
 - Improved human output and error messaging consistency (tabular RSVP output, actionable multi-line setup errors, and `--no-color` support).
 - Added HTTP runtime helpers for per-request timeouts, verbose request logging, and token redaction.
@@ -44,6 +45,7 @@ Notes:
 ### Changed
 - CI now runs `go test` with `-count=1` to disable test result caching.
 - Makefile: added local development helper targets for the CLI and Keycloak.
+- Updated the pinned Planner API spec to include `DELETE /members/me` (see `spec.lock`).
 
 ### Deprecated
 
