@@ -1,8 +1,8 @@
-# ebo-planner-cli — CLI Specification
+# trip-planner-cli — CLI Specification
 
 Status: **APPROVED (v1.0)**
 
-This document specifies the required behavior and command surface of the **East Bay Overland Trip Planning CLI**.
+This document specifies the required behavior and command surface of the **Overland East Bay Trip Planning CLI**.
 
 It is **spec-first**: API behavior and validation rules come from the spec repo and are consumed via `spec.lock`.
 The CLI must not rely on undocumented service behavior.
@@ -43,7 +43,7 @@ Initial draft with v1 conventions finalized.
 
 ## Terminology
 
-- **Service / API**: the ebo-planner backend HTTP API defined by `ebo-planner-spec/openapi/openapi.yaml`.
+- **Service / API**: the trip-planner API defined by `trip-planner-spec/openapi/openapi.yaml`.
 - **Member**: authenticated caller. Some endpoints require the caller to also be a *provisioned* member profile.
 - **Organizer**: member in a trip’s organizer set.
 - **Draft visibility**:

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/httpx"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/httpx"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 type Adapter struct {
@@ -278,6 +278,22 @@ func (a Adapter) GetMyMemberProfile(ctx context.Context, baseURL string, bearerT
 	}
 	if resp.StatusCode() >= 400 {
 		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON500)
+	}
+	return resp, nil
+}
+
+func (a Adapter) DeleteMyMemberAccount(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.DeleteMyMemberAccountJSONRequestBody) (*gen.DeleteMyMemberAccountClientResponse, error) {
+	client, err := a.newClient(baseURL, bearerToken)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "failed to init client", err)
+	}
+	params := &gen.DeleteMyMemberAccountParams{IdempotencyKey: idempotencyKey}
+	resp, err := client.DeleteMyMemberAccountWithResponse(ctx, params, req)
+	if err != nil {
+		return nil, exitcode.New(exitcode.KindServer, "request failed", err)
+	}
+	if resp.StatusCode() >= 400 {
+		return nil, apiErrorFromAny(resp.StatusCode(), resp.JSON401, resp.JSON404, resp.JSON409, resp.JSON500)
 	}
 	return resp, nil
 }

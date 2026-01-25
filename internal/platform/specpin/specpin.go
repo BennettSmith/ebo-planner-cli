@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const defaultSiblingSpecDir = "../ebo-planner-spec"
+const defaultSiblingSpecDir = "../trip-planner-spec"
 
 type Runner interface {
 	Run(name string, args ...string) ([]byte, error)
@@ -42,7 +42,7 @@ func ReadSpecTag(specLockPath string) (string, error) {
 // ResolveSpecDir resolves the spec repo directory.
 //
 // - If EBO_SPEC_DIR is set, it is used.
-// - Otherwise, default to a sibling checkout at ../ebo-planner-spec.
+// - Otherwise, default to a sibling checkout at ../trip-planner-spec.
 func ResolveSpecDir(env map[string]string, cwd string) string {
 	if v := strings.TrimSpace(env["EBO_SPEC_DIR"]); v != "" {
 		if filepath.IsAbs(v) {

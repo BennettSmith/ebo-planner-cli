@@ -3,7 +3,7 @@ package plannerapi
 import (
 	"context"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
 )
 
 // Client is the outbound port used by the application layer.
@@ -32,6 +32,7 @@ type Client interface {
 	ListMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.ListMembersParams) (*gen.ListMembersClientResponse, error)
 	SearchMembers(ctx context.Context, baseURL string, bearerToken string, params *gen.SearchMembersParams) (*gen.SearchMembersClientResponse, error)
 	GetMyMemberProfile(ctx context.Context, baseURL string, bearerToken string) (*gen.GetMyMemberProfileClientResponse, error)
+	DeleteMyMemberAccount(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.DeleteMyMemberAccountJSONRequestBody) (*gen.DeleteMyMemberAccountClientResponse, error)
 	CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error)
 	UpdateMyMemberProfile(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.UpdateMyMemberProfileJSONRequestBody) (*gen.UpdateMyMemberProfileClientResponse, error)
 }

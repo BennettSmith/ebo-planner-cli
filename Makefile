@@ -19,8 +19,8 @@ EBO_KEYCLOAK_BASE_URL ?= http://localhost:8082
 EBO_KEYCLOAK_REALM ?= ebo
 EBO_KEYCLOAK_LOGOUT_REDIRECT ?= http://localhost:8082/
 
-# Backend repo location (used to read the seeded Keycloak realm import for local testing)
-EBO_BACKEND_DIR ?= ../ebo-planner-backend
+# API repo location (used to read the seeded Keycloak realm import for local testing)
+EBO_BACKEND_DIR ?= ../trip-planner-api
 EBO_KEYCLOAK_REALM_IMPORT ?= $(EBO_BACKEND_DIR)/deploy/keycloak/import/ebo-realm.json
 
 # Default profile used by local-dev helpers that call the API.
@@ -149,7 +149,7 @@ keycloak-users:
 	f="$(EBO_KEYCLOAK_REALM_IMPORT)"; \
 	if [[ ! -f "$$f" ]]; then \
 		echo "ERROR: Keycloak realm import not found: $$f" >&2; \
-		echo "Set EBO_BACKEND_DIR (default: ../ebo-planner-backend) or EBO_KEYCLOAK_REALM_IMPORT to point at ebo-realm.json" >&2; \
+		echo "Set EBO_BACKEND_DIR (default: ../trip-planner-api) or EBO_KEYCLOAK_REALM_IMPORT to point at ebo-realm.json" >&2; \
 		exit 1; \
 	fi; \
 	if ! command -v jq >/dev/null 2>&1; then \

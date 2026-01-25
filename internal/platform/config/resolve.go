@@ -1,6 +1,6 @@
 package config
 
-import "github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
+import "github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
 
 type Effective struct {
 	Profile string

@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/config"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	outplannerapi "github.com/BennettSmith/ebo-planner-cli/internal/ports/out/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/config"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	outplannerapi "github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out/plannerapi"
 )
 
 type fakePlannerAPI struct {

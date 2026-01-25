@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/specpin"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/specpin"
 )
 
 func main() {

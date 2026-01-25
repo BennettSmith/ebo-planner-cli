@@ -33,9 +33,9 @@ func join(ss []string) string {
 }
 
 func TestResolveSpecDir_DefaultSibling(t *testing.T) {
-	cwd := "/repo/ebo-planner-cli"
+	cwd := "/repo/trip-planner-cli"
 	got := ResolveSpecDir(map[string]string{}, cwd)
-	want := filepath.Clean("/repo/ebo-planner-spec")
+	want := filepath.Clean("/repo/trip-planner-spec")
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

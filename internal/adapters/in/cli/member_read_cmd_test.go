@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	plannerapiout "github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/plannerapi"
-	gen "github.com/BennettSmith/ebo-planner-cli/internal/gen/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
-	outplannerapi "github.com/BennettSmith/ebo-planner-cli/internal/ports/out/plannerapi"
+	plannerapiout "github.com/Overland-East-Bay/trip-planner-cli/internal/adapters/out/plannerapi"
+	gen "github.com/Overland-East-Bay/trip-planner-cli/internal/gen/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
+	outplannerapi "github.com/Overland-East-Bay/trip-planner-cli/internal/ports/out/plannerapi"
 )
 
 type fakeMemberReadAPI struct {
@@ -105,6 +105,10 @@ func (f *fakeMemberReadAPI) GetMyMemberProfile(ctx context.Context, baseURL stri
 	return &gen.GetMyMemberProfileClientResponse{JSON200: &struct {
 		Member gen.MemberProfile `json:"member"`
 	}{Member: gen.MemberProfile{MemberId: "m1", DisplayName: "Me", Email: "me@example.com"}}}, nil
+}
+
+func (f *fakeMemberReadAPI) DeleteMyMemberAccount(ctx context.Context, baseURL string, bearerToken string, idempotencyKey string, req gen.DeleteMyMemberAccountJSONRequestBody) (*gen.DeleteMyMemberAccountClientResponse, error) {
+	return nil, exitcode.New(exitcode.KindUnexpected, "not implemented in test", nil)
 }
 
 func (f *fakeMemberReadAPI) CreateMyMember(ctx context.Context, baseURL string, bearerToken string, req gen.CreateMyMemberJSONRequestBody) (*gen.CreateMyMemberClientResponse, error) {

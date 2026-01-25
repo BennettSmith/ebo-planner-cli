@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/app/authapp"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/envelope"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/app/authapp"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/envelope"
 	"github.com/spf13/cobra"
 )
 

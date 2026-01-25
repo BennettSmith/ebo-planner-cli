@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/BennettSmith/ebo-planner-cli/internal/adapters/out/plannerapi"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/cliopts"
-	"github.com/BennettSmith/ebo-planner-cli/internal/platform/exitcode"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/adapters/out/plannerapi"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/cliopts"
+	"github.com/Overland-East-Bay/trip-planner-cli/internal/platform/exitcode"
 )
 
 func TestBuildErrorEnvelope_IncludesRequestIDWhenPresent(t *testing.T) {
